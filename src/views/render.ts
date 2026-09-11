@@ -351,6 +351,7 @@ ${ICON_SPRITE}
       </nav>
     </div>
     <div class="sidebar-foot">
+      <% /* 帮助链接指向 GitHub 仓库；仓库改名后再同步成新地址（GitHub 对旧地址会自动重定向） */ %>
       <a class="foot-repo" href="<%= it.githubUrl || 'https://github.com/libremk66/songferry' %>" target="_blank" rel="noopener" title="项目主页（GitHub）">
         <svg aria-hidden="true"><use href="#i-github"/></svg>帮助说明
       </a>
