@@ -287,6 +287,8 @@ export interface HistoryQuery {
   to?: string
   /** 文件路径 模糊 */
   path?: string
+  /** 引用情况 模糊：匹配引用快照里的任务名（`refBefore` / `refAfter` 任一命中） */
+  ref?: string
   /** keyset 分页：只取 id 小于它的事件行（旧方式，已改用 offset 翻页） */
   cursor?: number
   limit?: number
@@ -384,6 +386,8 @@ export function listHistoryRows(f: HistoryQuery): HistoryRow[] {
   if (f.from) { where.push('b.startedAt >= ?'); args.push(f.from) }
   if (f.to) { where.push('b.startedAt <= ?'); args.push(f.to) }
   if (f.path) { where.push('h.filePath LIKE ?'); args.push(`%${f.path}%`) }
+  // 引用情况存的是 JSON 快照（[{"taskName":"华语"}]），直接对文本做模糊匹配就够用
+  if (f.ref) { where.push('(h.refBefore LIKE ? OR h.refAfter LIKE ?)'); args.push(`%${f.ref}%`, `%${f.ref}%`) }
   if (f.cursor) { where.push('h.id < ?'); args.push(f.cursor) }
   const limit = Math.min(500, Math.max(1, f.limit ?? 25))
   const offset = Math.max(0, f.offset ?? 0)
@@ -391,7 +395,7 @@ export function listHistoryRows(f: HistoryQuery): HistoryRow[] {
     SELECT h.id, h.batchId, h.taskId, h.songKey, h.songName, h.singer, h.status, h.quality,
            h.filePath, h.fileSize, h.errorReason, h.detail, h.action, h.process, h.refBefore, h.refAfter,
            b.startedAt, b.taskName, b.taskType, b.trigger, b.mode, b.delPolicy, b.targetPlaylists,
-           b.playlistScopeName, b.maxCount,
+           b.playlistScopeName, b.maxCount, b.archivePlaylist,
            ROW_NUMBER() OVER (PARTITION BY h.taskId, h.songKey ORDER BY h.id) AS attemptNo,
            MIN(h.id)      OVER (PARTITION BY h.songKey)  AS firstId,
            COUNT(*)       OVER (PARTITION BY h.batchId)  AS batchRows
@@ -427,6 +431,8 @@ export function countHistoryRows(f: HistoryQuery): number {
   if (f.from) { where.push('b.startedAt >= ?'); args.push(f.from) }
   if (f.to) { where.push('b.startedAt <= ?'); args.push(f.to) }
   if (f.path) { where.push('h.filePath LIKE ?'); args.push(`%${f.path}%`) }
+  // 引用情况存的是 JSON 快照（[{"taskName":"华语"}]），直接对文本做模糊匹配就够用
+  if (f.ref) { where.push('(h.refBefore LIKE ? OR h.refAfter LIKE ?)'); args.push(`%${f.ref}%`, `%${f.ref}%`) }
   const row = getDb()
     .prepare(`SELECT COUNT(*) AS n FROM history_item h JOIN history_batch b ON b.id = h.batchId ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`)
     .get(...args) as { n: number }
@@ -447,6 +453,16 @@ export function listBatchRows(f: { taskName?: string; trigger?: string; mode?: s
   const offset = Math.max(0, f.offset ?? 0)
   const sql = `SELECT * FROM history_batch ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ? OFFSET ?`
   return getDb().prepare(sql).all(...args, limit, offset) as BatchRow[]
+}
+
+/** 批次视图的下拉候选：只取批次表里出现过的任务名 */
+export function batchFacets(): { taskNames: string[] } {
+  const taskNames = (
+    getDb()
+      .prepare('SELECT DISTINCT taskName FROM history_batch WHERE taskName IS NOT NULL ORDER BY taskName')
+      .all() as { taskName: string }[]
+  ).map((r) => r.taskName)
+  return { taskNames }
 }
 
 /** 下拉框候选值（任务名/音质——process 用代码里的固定枚举，空库也能选） */
@@ -483,7 +499,7 @@ export function listBatchItems(batchId: number): HistoryRow[] {
     SELECT h.id, h.batchId, h.taskId, h.songKey, h.songName, h.singer, h.status, h.quality,
            h.filePath, h.fileSize, h.errorReason, h.detail, h.action, h.process, h.refBefore, h.refAfter,
            b.startedAt, b.taskName, b.taskType, b.trigger, b.mode, b.delPolicy, b.targetPlaylists,
-           b.playlistScopeName, b.maxCount,
+           b.playlistScopeName, b.maxCount, b.archivePlaylist,
            1 AS attemptNo, h.id AS firstId, 0 AS batchRows
     FROM history_item h JOIN history_batch b ON b.id = h.batchId
     WHERE h.batchId = ? ORDER BY h.id`
@@ -879,6 +895,21 @@ export function clearEmbyMap(songKey: string): void {
 export function clearAllEmbyMap(): number {
   const r = getDb().prepare('DELETE FROM emby_song_map').run()
   return r.changes
+}
+
+/**
+ * 按 songKey 取歌名/歌手 —— 给「封面缓存没命中时现场搜一次」当搜索词用。
+ * 取最近一条非空记录：同一首歌可能被多个任务下过，历史里有多行。
+ */
+export function songMetaOf(songKey: string): { title: string; singer: string | null } | null {
+  const r = getDb()
+    .prepare(
+      `SELECT songName, singer FROM history_item
+       WHERE songKey = ? AND songName IS NOT NULL
+       ORDER BY id DESC LIMIT 1`,
+    )
+    .get(songKey) as { songName: string; singer: string | null } | undefined
+  return r ? { title: r.songName, singer: r.singer } : null
 }
 
 export function setEmbyMap(songKey: string, embySongId: string): void {

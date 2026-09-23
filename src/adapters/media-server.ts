@@ -105,5 +105,10 @@ export interface MediaServerAdapter {
 
   // ===== 路径（回收站定位） =====
   /** 取条目服务器视角路径；不可反查时返回 '' */
+  /**
+   * 取条目的主图（原始字节）。**可选**：不支持的适配器不实现，调用方按"没封面"处理。
+   * 前端用它给列表行做封面缩略图 —— 几十字节的请求，比让浏览器直连媒体服务器省事（不用暴露 key）。
+   */
+  getPrimaryImage?(itemId: string, size?: number): Promise<{ data: Buffer; contentType: string } | null>
   getItemPath(itemId: string): Promise<string>
 }

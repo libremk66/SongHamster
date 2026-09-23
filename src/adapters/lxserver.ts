@@ -173,15 +173,23 @@ export class LxServerAdapter {
    * ⚠️ 参数名是 name（不是 query，query 报 400 Missing name）
    * ⚠️ 返回 songmid 是数字，normalizeSong 已转字符串
    */
-  /** 榜单平台（lxserver leaderboard 支持面 + UI 显示名） */
+  /**
+   * 榜单平台（lxserver leaderboard 支持面 + UI 显示名）。
+   *
+   * ⚠️ **没有百度（bd）**：lxserver 的平台清单里百度是被注释掉的
+   * （`musicSdk/index.js` 里 `// { name: '百度音乐', id: 'bd' }`），
+   * 但 `bd/leaderboard.js` 那个文件还留着 —— 于是榜单**列表**接口照样返回一堆榜名，
+   * 一点进去拉歌就 `{"error":"try max num"}`。
+   * 实测（2026-09-23）：bd 列表能出、歌拉不到；tx/wy/kw/kg/mg 五个都正常。
+   * 别再加回来。
+   */
   async chartPlatforms(): Promise<{ key: string; label: string }[]> {
     return [
-      { key: 'kw', label: '酷我' },
       { key: 'tx', label: 'QQ' },
+      { key: 'kw', label: '酷我' },
       { key: 'wy', label: '网易云' },
       { key: 'kg', label: '酷狗' },
       { key: 'mg', label: '咪咕' },
-      { key: 'bd', label: '百度' },
     ]
   }
 

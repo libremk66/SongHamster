@@ -5,6 +5,16 @@ import { NOTIFY_EVENTS } from './core/notify-events.js'
 import YAML from 'yaml'
 import Database from 'better-sqlite3'
 
+/** 项目版本（读 package.json）—— 原来在 src/views/render.ts，删旧页面时挪过来的 */
+export const VERSION: string = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')) as { version?: string }
+    return String(pkg.version || '0.1.0')
+  } catch {
+    return '0.1.0'
+  }
+})()
+
 /** 音质顺序（高→低尝试），界面复选框顺序即此 */
 export const QUALITY_ORDER = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k', '192k', '128k'] as const
 export type Quality = (typeof QUALITY_ORDER)[number]
@@ -34,28 +44,6 @@ export const QUALITY_LABELS: Record<Quality, string> = {
 /** FLAC 容器内的高规格档（需要按真实位深/采样率校验降档） */
 export const HIGH_RES_FLAC: Quality[] = ['master', 'hires', 'flac24bit']
 
-/** 自动新增同步任务：基线日期后出现的 LX 歌单自动建任务并同步 */
-export interface AutoAddConfig {
-  enabled: boolean
-  /** 界面展示的启用日期（语义确认用） */
-  baselineDate: string
-  /** 检测计划 cron（空 = 仅手动"立即检测"） */
-  checkCron: string
-  /** 基线快照：保存设置时已存在的歌单 key（永不会自动纳入） */
-  baselineKeys: string[]
-  /** 忽略列表：被删除过/手动忽略的歌单 key（不自动纳入） */
-  ignoredKeys: string[]
-  /** 自动创建任务的默认目标 */
-  createSameNamePlaylist: boolean
-  embyTargetPlaylistIds: string[]
-  /** 自动创建任务的同步方式 */
-  syncMode: 'incremental' | 'full'
-  /** 自动创建任务的独立 cron（空 = 仅手动，但创建后立即同步一次） */
-  taskCron: string
-  /** 自动创建任务的默认查重设置 */
-  dedupCheck: boolean
-  dedupMinQuality: string | null
-}
 
 // ===== 歌单同步重设计(见 docs/sync-redesign-spec.md)=====
 
@@ -182,27 +170,6 @@ export function defaultListen(): ListenConfig {
   }
 }
 
-/** 旧 autoadd → listen.all(旧 full = mirror+keep);listen 未显式配置时用此推导,保证升级无行为漂移 */
-export function deriveListenFromAutoadd(a: AutoAddConfig): ListenConfig {
-  const mk = (src: AutoAddConfig): ListenParams => ({
-    createSameNamePlaylist: src.createSameNamePlaylist,
-    embyTargetPlaylistIds: [...src.embyTargetPlaylistIds],
-    taskMode: src.syncMode === 'full' ? 'mirror' : 'incremental',
-    delPolicy: 'keep',
-    archivePlaylist: DEFAULT_ARCHIVE_PLAYLIST,
-    taskCron: src.taskCron,
-    dedupCheck: src.dedupCheck,
-    dedupMinQuality: src.dedupMinQuality,
-  })
-  const L = defaultListen()
-  L.enabled = a.enabled
-  L.checkCron = a.checkCron
-  L.baselineDate = a.baselineDate
-  L.baselineKeys = [...a.baselineKeys]
-  L.ignoredKeys = [...a.ignoredKeys]
-  L.all = mk(a)
-  return L
-}
 
 /** 深合并 listen 各层(defaults ← file) */
 export function mergeListen(file?: Partial<ListenConfig>): ListenConfig {
@@ -302,15 +269,13 @@ export interface AppConfig {
     //       2026-09 从界面与配置中移除（老配置文件里的残留键由 loadConfig 清理）。
   }
   general: {
-    /** 自动纳入 LX 新建的歌单（旧字段，保留兼容；实际由 autoadd 接管） */
+    /** 自动纳入 LX 新建的歌单（旧字段，保留兼容；实际由 listen 接管） */
     autoIncludeNewPlaylists: boolean
     /** 完全同步时清理无引用孤立文件（默认关） */
     cleanupOrphanFiles: boolean
     /** 暂停所有同步 */
     pauseAll: boolean
     logRetentionDays: number
-    /** 自动新增同步任务(旧模型,Phase C 后由 listen 取代;兼容保留) */
-    autoadd: AutoAddConfig
     /** 监听同步(单监听器+模式互斥)——歌单同步重设计新模型 */
     listen: ListenConfig
     /** 项目主页（侧栏"帮助"链接） */
@@ -332,7 +297,6 @@ export interface AppConfig {
     /** 密码哈希（scrypt, 格式 salt:hash）——不存明文 */
     passwordHash: string
   }
-  upgrade: UpgradeConfig
   advanced: AdvancedConfig
 }
 
@@ -342,20 +306,6 @@ export interface AdvancedConfig {
   dedupCheck: boolean
   /** 查重音质门槛：空=不检查音质（任意存在即跳过） */
   dedupMinQuality: string | null
-}
-
-/** 洗版（曲库升级）规则 */
-export interface UpgradeConfig {
-  /** 低于此码率（kbps）则洗版：128/192/256/320/500 */
-  thresholdKbps: number
-  /** 新版最低音质（勾选链中目标起点） */
-  minQuality: Quality
-  /** 最大时长误差（秒，默认 3） */
-  maxDurDiffSec: number
-  /** 扫描目录（用户选择） */
-  scanDir: string
-  /** 新版保存目录（默认 <downloadRoot>/曲库洗版） */
-  outputDir: string
 }
 
 /** 通知默认订阅哪些事件（用户可在界面改） */
@@ -383,19 +333,6 @@ export const DEFAULT_CONFIG: AppConfig = {
     cleanupOrphanFiles: false,
     pauseAll: false,
     logRetentionDays: 30,
-    autoadd: {
-      enabled: false,
-      baselineDate: '',
-      checkCron: '0 6 * * *',
-      baselineKeys: [],
-      ignoredKeys: [],
-      createSameNamePlaylist: true,
-      embyTargetPlaylistIds: [],
-      syncMode: 'incremental',
-      taskCron: '',
-      dedupCheck: false,
-      dedupMinQuality: null,
-    },
     listen: defaultListen(),
     githubUrl: '',
   },
@@ -413,13 +350,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   server: { port: Number(process.env.PORT || 8935) },
   auth: { enabled: false, username: '', passwordHash: '' },
-  upgrade: {
-    thresholdKbps: 320,
-    minQuality: 'flac',
-    maxDurDiffSec: 3,
-    scanDir: '',
-    outputDir: '',
-  },
   advanced: { dedupCheck: false, dedupMinQuality: null },
 }
 
@@ -504,11 +434,8 @@ export function loadConfig(): AppConfig {
     general: {
       ...DEFAULT_CONFIG.general,
       ...fileCfg?.general,
-      autoadd: { ...DEFAULT_CONFIG.general.autoadd, ...fileCfg?.general?.autoadd },
-      // listen:文件显式配置则深合并;否则由旧 autoadd 推导(等价迁移,行为不漂移)
-      listen: fileCfg?.general?.listen
-        ? mergeListen(fileCfg.general.listen)
-        : deriveListenFromAutoadd({ ...DEFAULT_CONFIG.general.autoadd, ...fileCfg?.general?.autoadd }),
+      // 旧 autoadd 已删(2026-09-23):listen 只认文件里的配置,不再从 autoadd 推导
+      listen: mergeListen(fileCfg?.general?.listen),
     },
     notify: {
       ...DEFAULT_CONFIG.notify,
@@ -525,7 +452,6 @@ export function loadConfig(): AppConfig {
     },
     server: { ...DEFAULT_CONFIG.server, ...fileCfg?.server },
     auth: { ...DEFAULT_CONFIG.auth, ...fileCfg?.auth },
-    upgrade: { ...DEFAULT_CONFIG.upgrade, ...fileCfg?.upgrade },
     advanced: { ...DEFAULT_CONFIG.advanced, ...fileCfg?.advanced },
   }
   // 老配置的 notify.feishuWebhook（v0.4 唯一的通知字段）→ 接管进 channels.feishu

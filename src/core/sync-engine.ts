@@ -192,7 +192,10 @@ export class SyncEngine {
   async ensureArchiveTarget(name: string, scope = 'shared'): Promise<{ ok: boolean; created: boolean; error?: string }> {
     try {
       if (await this.findPlaylistByName(name, scope)) return { ok: true, created: false }
-      await this.emby.createPlaylist(name)
+      const np = await this.emby.createPlaylist(name)
+      // ⚠️ 必须把新歌单塞进缓存：findPlaylistByName 读的是 playlistCache，
+      //    不更新的话同一进程内再查仍是旧列表 → 反复创建同名歌单（2026-09-20 实测踩到）
+      this.playlistCache.get(scope)?.push({ id: np.id, name })
       logger.info(`[engine] 已创建归档歌单「${name}」`)
       return { ok: true, created: true }
     } catch (e) {

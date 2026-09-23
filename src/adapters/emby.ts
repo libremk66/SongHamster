@@ -42,6 +42,22 @@ export class EmbyAdapter implements MediaServerAdapter {
     return data
   }
 
+  /** 主图：媒体库里每首歌自带的封面。maxWidth 限制尺寸，列表缩略图不必取原图 */
+  async getPrimaryImage(itemId: string, size = 80): Promise<{ data: Buffer; contentType: string } | null> {
+    if (!this.c.baseUrl || !this.c.apiKey) return null
+    try {
+      const url = `${this.c.baseUrl}/emby/Items/${encodeURIComponent(itemId)}/Images/Primary?maxWidth=${size}&quality=90`
+      // 这里不能用 request()：它会按文本解析，图片是二进制
+      const res = await fetch(url, { headers: { 'X-Emby-Token': this.c.apiKey } })
+      if (!res.ok) return null // 没图 / 条目没了 —— 都当"没封面"，不抛错
+      const data = Buffer.from(await res.arrayBuffer())
+      if (!data.length) return null
+      return { data, contentType: res.headers.get('content-type') ?? 'image/jpeg' }
+    } catch {
+      return null
+    }
+  }
+
   async test(): Promise<{ ok: boolean; error?: string }> {
     try {
       await this.request('/System/Info')

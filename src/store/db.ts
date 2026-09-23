@@ -174,41 +174,13 @@ function migrate(d: Database.Database): void {
       updatedAt TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS upgrade_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      createdAt TEXT NOT NULL,
-      songName TEXT,
-      singer TEXT,
-      matchScore INTEGER,                 -- 190 分制
-      status TEXT NOT NULL,               -- success / no_candidate / has_higher / failed / skipped
-      oldQuality TEXT,                    -- 旧版音质标识（如 128k / 320k / flac…）
-      oldBitrate INTEGER,                 -- 旧版码率 kbps（估算时带 ~）
-      oldDurationSec INTEGER,
-      oldPath TEXT,
-      oldSize INTEGER,
-      newQuality TEXT,                    -- 新版实际音质
-      newDurationSec INTEGER,
-      newPath TEXT,
-      newSize INTEGER,
-      errorReason TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_upgrade_history_created ON upgrade_history(createdAt);
+    -- upgrade_history / dupe_scan 两张表随「曲库管理」功能一起删除了（2026-09-23）。
+    -- 建表语句留着的话，DROP 掉下次启动还会回来。
 
     CREATE TABLE IF NOT EXISTS auth_session (
       token TEXT PRIMARY KEY,
       user TEXT NOT NULL,
       exp INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS dupe_scan (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      createdAt TEXT NOT NULL,
-      libraryIds TEXT NOT NULL,
-      threshold TEXT,
-      groupsCount INTEGER NOT NULL DEFAULT 0,
-      autoCount INTEGER NOT NULL DEFAULT 0,
-      manualCount INTEGER NOT NULL DEFAULT 0,
-      summary TEXT NOT NULL
     );
   `)
   // 老库增量迁移（SQLite 无 ADD COLUMN IF NOT EXISTS）
