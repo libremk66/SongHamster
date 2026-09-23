@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/static/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#161513" />
+    <title>音乐仓鼠</title>
+  </head>
+    <!-- 主题：在 React 渲染前就把 class 定好，避免"先白闪一下再变黑" -->
+    <script>
+      (function () {
+        try {
+          var m = localStorage.getItem('sh-theme') || 'dark'
+          var dark = m === 'dark' || (m === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('dark', dark)
+        } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
+      })()
+    </script>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

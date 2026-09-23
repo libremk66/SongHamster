@@ -8,7 +8,8 @@ import { logger } from './core/logger.js'
 const COOKIE = 'songhamster_session'
 /** 改名前的旧 cookie 名：老会话继续认（用户不必重新登录一次） */
 const LEGACY_COOKIES = ['songferry_session']
-const SESSION_DAYS = 30
+/** 会话有效期（天）—— 服务端会话和 cookie 的 maxAge 共用这一个值 */
+export const SESSION_DAYS = 30
 
 /** scrypt 哈希：salt:hash（不存明文） */
 export function hashPassword(password: string): string {
@@ -83,6 +84,9 @@ export function authRequired(cfg: () => AppConfig) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!cfg().auth.enabled) return next()
     if (isSessionValid(sessionToken(req))) return next()
+    // React SPA 的外壳与静态资源放行：里面没有任何数据，数据全在 /api 后面。
+    // 不放行的话登录页自己都加载不出来（JS/CSS 被拦）。
+    if (req.path === '/app' || req.path.startsWith('/app/')) return next()
     if (req.path.startsWith('/api/')) {
       res.status(401).json({ ok: false, error: '未登录' })
     } else {

@@ -23,6 +23,13 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
+# 3) 构建前端（React SPA）—— 界面已经全在这个包里，不构建镜像就没有界面
+#    先只 COPY 依赖清单再 npm ci，这样改前端源码不会让这层缓存失效
+COPY web/package.json web/package-lock.json ./web/
+RUN cd web && npm ci
+COPY web ./web
+RUN cd web && npm run build
+
 # ---- 运行镜像 ----
 FROM node:22-bookworm-slim
 WORKDIR /app
@@ -33,9 +40,9 @@ COPY --from=build /app/node_modules ./node_modules
 # 编译产物 + 版本信息
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./
-# eta 视图模板运行时读取（src/views/*.eta），必须带入镜像
-COPY src/views ./src/views
-# 静态资源（htmx / pico / 图标）
+# 前端产物：Express 从 web/dist 提供 SPA（旧 Eta 模板已删，不再需要 src/views）
+COPY --from=build /app/web/dist ./web/dist
+# 静态资源（图标等）
 COPY static ./static
 
 # 运行数据（config.yaml + songhamster.db）挂载点

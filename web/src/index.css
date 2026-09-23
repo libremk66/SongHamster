@@ -1,0 +1,215 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * 设计 token —— shadcn/ui 约定：组件只引用语义变量，不写死颜色。
+ *
+ * ⚠️ 阶段二的接入点：把生成好的设计系统（配色/圆角/字体/间距）灌进下面 :root 和 .dark
+ * 的变量值即可，**组件代码一行都不用改**。现在用的是 shadcn 中性默认值。
+ */
+/*
+ * 设计 token —— shadcn/ui 约定：组件只引用语义变量，不写死颜色。
+ * 主题：**深色科技**（2026-09-20 用户选定）—— 深蓝黑底 + 品牌绿点缀。
+ * 深色是默认（index.html 的 <html class="dark">）；下面是同色系的浅色版，将来做切换用。
+ */
+/*
+ * 设计 token —— shadcn/ui 约定：组件只引用语义变量，不写死颜色。
+ *
+ * 主题：**暖黑·唱片架**（2026-09-20 定，替代此前的「近黑 + 荧光绿」）
+ * 由「音乐库同步工具」这个主题长出来：暖褐黑 = 唱片架的木头/暗房，
+ * 暗铜金 = 铜标/唱针，苔绿只用于「成功/复用」语义。
+ * 深色是默认（index.html 的 <html class="dark">）。
+ */
+:root {
+  --radius: 0.5rem;
+
+  /*
+    让浏览器知道当前是明还是暗。
+    原生控件（select 的下拉列表、滚动条、日期选择器、checkbox）是**浏览器自己画的**，
+    不吃我们的 CSS 变量 —— 它们只看 color-scheme。
+    不声明的话，深色主题下 select 展开是白底，而文字继承我们设的浅色 → 灰字白底，看不清。
+  */
+  color-scheme: light;
+
+  --background: #F5F1E8;
+  --foreground: #1C1A17;
+  --card: #FFFFFF;
+  --card-foreground: #1C1A17;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1A17;
+  --primary: #956937;
+  --primary-foreground: #FFF9F0;
+  --secondary: #E9E3D6;
+  --secondary-foreground: #1C1A17;
+  --muted: #EDE8DC;
+  --muted-foreground: #6E675C;
+  --accent: #EDE8DC;
+  --accent-foreground: #1C1A17;
+  --destructive: #A83232;
+  --destructive-foreground: #FFFFFF;
+  --border: #DCD5C6;
+  --input: #DCD5C6;
+  --ring: #956937;
+
+  --chart-1: #956937;
+  --chart-2: #4A6B8A;
+  --chart-3: #6B7A5A;
+  --chart-4: #8A5A7A;
+  --chart-5: #A83232;
+
+  --sidebar: #EDE8DC;
+  --sidebar-foreground: #1C1A17;
+  --sidebar-primary: #956937;
+  --sidebar-primary-foreground: #FFF9F0;
+  --sidebar-accent: #DCD5C6;
+  --sidebar-accent-foreground: #1C1A17;
+  --sidebar-border: #DCD5C6;
+  --sidebar-ring: #956937;
+}
+
+.dark {
+  --radius: 0.5rem;
+  /* 见 :root 里的说明 —— 原生控件（select 下拉/滚动条）靠这个才跟着变暗 */
+  color-scheme: dark;
+
+  /* 暖褐黑：不是 #0f172a 那种蓝黑（那是典型 AI 味），带一点木/皮革的温度 */
+  --background: #161513;
+  --foreground: #EDE7DC;
+  /* 「唱片」：分区底（列表区 / 工具栏 / 侧栏），比页面底浅一档 */
+  --card: #211F1C;
+  --card-foreground: #EDE7DC;
+  /* 「浮起」：真正浮起来的物件（弹层、卡），再浅一档 */
+  --popover: #2A2724;
+  --popover-foreground: #EDE7DC;
+  /* 「铜」：主色。暗铜金，不刺眼——绿色让位给「成功」语义 */
+  --primary: #B48550;
+  --primary-foreground: #1A1714;
+  --secondary: #2A2724;
+  --secondary-foreground: #EDE7DC;
+  --muted: #262320;
+  --muted-foreground: #8A8279;
+  --accent: #2A2724;
+  --accent-foreground: #EDE7DC;
+  --destructive: #C2564E;
+  --destructive-foreground: #FFF3F1;
+  --border: #35312C;
+  --input: #35312C;
+  --ring: #B48550;
+
+  /* 「苔」：低饱和绿，只用于成功/复用，不做强调色 */
+  --chart-1: #B48550;
+  --chart-2: #6B8FA8;
+  --chart-3: #6B7A5A;
+  --chart-4: #A87A9A;
+  --chart-5: #C2564E;
+
+  --sidebar: #1B1917;
+  --sidebar-foreground: #EDE7DC;
+  --sidebar-primary: #B48550;
+  --sidebar-primary-foreground: #1A1714;
+  --sidebar-accent: #262320;
+  --sidebar-accent-foreground: #EDE7DC;
+  --sidebar-border: #2A2724;
+  --sidebar-ring: #B48550;
+}
+
+@theme inline {
+  /*
+    字号标尺整体上调一档 —— 参考 MoviePilot。
+
+    MP 没覆盖 Vuetify 的排版默认值，所以它的基准是：正文/表格 14px、caption 12px。
+    我们的 text-sm 本来就是 14px，**问题在于该用正文尺寸的地方大量用了 text-xs(12px)**：
+    实测「进度历史」页 1081 处文本里 998 处（92%）是 12px，表格密密麻麻看着累。
+
+    与其去改 110 处 class，不如直接把标尺抬起来：`text-xs` 从 12 抬到 14（对齐 MP 的正文），
+    `text-sm` 从 14 抬到 15 保住层次。改这里一处，全站生效。
+    （行高不用管：Tailwind v4 默认写的是 calc 比值，会跟着字号一起缩。）
+  */
+  --text-xs: 0.875rem; /* 12 → 14px */
+  --text-sm: 0.9375rem; /* 14 → 15px */
+  /*
+    标题层同样抬一档。和 MP 对齐：
+      · 面板/页面标题 —— MP 用 Vuetify 的 VCardTitle，默认 1.25rem(20px)
+      · 侧栏站名     —— MP 是 text-2xl(24px)
+    text-lg 在我们这儿恰好就是 8 个页面的 <h1>，text-xl 只有侧栏站名在用，
+    所以这两行覆盖等于把「所有页面标题 + 站名」一次性调好。
+  */
+  --text-lg: 1.25rem; /* 18 → 20px */
+  --text-xl: 1.5rem; /* 20 → 24px */
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    /* 移动端：禁掉 iOS 点击高亮 */
+    -webkit-tap-highlight-color: transparent;
+  }
+  /*
+    原生 <select> 展开后的列表是**浏览器自己画的**，不吃 Tailwind class。
+    它的底色取自 <option>，而 <option> 默认透明 → 浏览器退回白色兜底；
+    文字却继承我们的 --foreground（深色主题下是浅米色）→ 白底浅字，看不清。
+    只设 select 的 color-scheme 没用（实测仍为白底），必须显式给 option 上色。
+  */
+  option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+
+  /* 移动端表单控件字号 ≥16px，防 iOS 聚焦自动缩放（UX 硬性规则） */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+  @media (min-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 0.875rem;
+    }
+  }
+}

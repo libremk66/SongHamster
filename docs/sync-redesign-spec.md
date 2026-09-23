@@ -1,7 +1,7 @@
 # 歌单同步重设计 · 定稿规格(Phase A 完成,编码依据)
 
 > 状态:**已实施完成**(Phase B/C/D 全部落地,2026-09-10)。UI 原型 `/sync-designer` 已完成使命、随本次整理移除(可从 git 历史取回)。
-> 实现见 `src/core/sync-engine.ts`(镜像/删除策略)、`src/core/listen.ts`(监听器)、`src/routes/api.ts`(任务与监听 API)、`src/views/sync-setup.eta`(两标签页)。
+> 实现见 `src/core/sync-engine.ts`(镜像/删除策略)、`src/core/listen.ts`(监听器)、`src/routes/api.ts`(任务与监听 API)、`web/src/pages/sync-setup.tsx`(三标签页；原 `src/views/sync-setup.eta` 已删)。
 > 术语:源 = LX 歌单;目标服务器 = Emby/Navidrome/Subsonic/道理鱼/Jellyfin(下称 target)。
 
 ---

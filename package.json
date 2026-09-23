@@ -1,6 +1,6 @@
 {
   "name": "songhamster",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "LX 歌单同步到 Emby：下载（完整标签/封面/歌词）+ 入库 + Emby 歌单增量",
   "private": true,
   "type": "module",
@@ -12,28 +12,22 @@
     "build": "tsc",
     "start": "NODE_ENV=production node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "build:css": "tailwindcss -i src/views/daisy.css -o static/daisy.css --minify",
-    "watch:css": "tailwindcss -i src/views/daisy.css -o static/daisy.css --watch"
+    "dev:web": "cd web && npm run dev",
+    "build:web": "cd web && npm run build"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "cookie-parser": "^1.4.7",
     "cron-parser": "^5.10.0",
-    "eta": "^4.6.0",
     "express": "^5.2.1",
     "node-cron": "^4.6.0",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@tabler/icons": "^3.46.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/node": "^26.4.1",
-    "autoprefixer": "^10.5.5",
-    "daisyui": "^4.12.24",
-    "postcss": "^8.5.28",
-    "tailwindcss": "^3.4.19",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }

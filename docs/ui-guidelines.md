@@ -1,4 +1,9 @@
-# SongHamster UI 设计规范(迁移期现行版)
+# SongHamster UI 设计规范
+
+> **2026-09-23 更新**：旧版（Eta + htmx + daisyUI + pico 桥）已整体删除，界面只剩 React SPA
+> （`web/`，Tailwind v4 + shadcn 风格自绘组件）。下面涉及 `.eta` / `daisy` / `pico` 的条目
+> 是**历史记录**，保留是为了说明当初为什么长这样，不再是现行约束。
+> 现行约定看 §2～§5、§10～§13，以及 `web/src/index.css` 里的主题变量。
 
 > 面向任何 AI/开发者修改本项目 UI。**改 UI 前先读本文件**,按规范执行;规范未覆盖处再问用户。
 > 技术栈:DaisyUI v4 + Tailwind 类 + oklch 主题变量;eta 服务端模板(htmx 局部刷新),**无前端框架、无组件库抽象**。
@@ -11,7 +16,11 @@
 **紧凑工具型管理后台**(参考 Tabler/Postman 设置页),**不是**落地页/作品集:不要 hero、不要大留白、不要动效炫技。
 目标用户:家用 NAS 维护者(lavender),桌面为主、手机可操作。
 
-## 1. 全局密度表(唯一事实源:`src/views/render.ts` LAYOUT 内 `<style>` 密度块)
+## 1. 全局密度表(历史)
+
+> 旧密度表的唯一事实源是 `src/views/render.ts`，该文件已删。
+> 现行尺寸由 `web/src/components/ui/*` 的组件类决定（按钮 `h-9`/移动 `h-11`、输入 `h-9`/移动 `h-11`）。
+
 
 | 项 | 值 | 说明 |
 |---|---|---|
@@ -56,9 +65,13 @@
 
 一律 oklch 主题变量(--p/--bc/--b1/--base-*),via daisy 类或 `oklch(var(--p))`;跟随系统深浅,禁写死 #fff/#000 背景。全站强调色已统一为品牌绿(§12),无服务识别色等第二色系(废弃 TC 表/color-mix 瓦片)。⚠️ daisy 主题变量是**裸通道值**不能直接当颜色(§13-5)。
 
-## 7. ⚠️ pico 桥五坑(迁移期专用,每条都是踩过的坑)
+## 7. ⚠️ pico 桥五坑（**已废弃** —— pico.css 与旧页面一起删了）
 
-pico.css 仍在布局中兜底老页面裸元素(TODO: 每页迁完删除),它**加载在 daisy.css 之后**且选择器特异性常更高:
+> 下面五条只在「旧 Eta 页面与 React SPA 并行」的迁移期成立。
+> 9 个页面 + 全部 partials 已迁完并删除，pico 桥、`daisy.css`、`icons-sprite` 一并清掉。
+
+
+（历史）pico.css 当时仍在布局中兜底老页面裸元素，它加载在 daisy.css 之后且选择器特异性常更高：
 
 1. **`input:not([type=checkbox]...)` 压过 `.input`**:输入框 42px 失效事故。→ 尺寸规则必须 `!important`(render.ts 密度块已带)
 2. **`button[type=submit] { width:100% }`**:submit 按钮全被拉满宽。→ `button.btn[type="submit"] { width:auto }`(特异性反超)
@@ -72,7 +85,7 @@ pico.css 仍在布局中兜底老页面裸元素(TODO: 每页迁完删除),它**
 
 1. 改 `.ts`(含 render.ts)→ tsx watch 自动热更(进程内 eta 缓存同时清空)
 2. 改 `.eta` → **必须重启 dev 进程**才生效(eta cache:true,tsx 不监听 .eta)。重启姿势见下
-3. 新增 tailwind/daisy 类 → **必须 `npm run build:css`**(扫描 src/views + render.ts;产物 static/daisy.css 是 tracked 文件,一起提交)
+3. （已废弃）新增样式类不需要单独编译 —— Tailwind 由 Vite 在 `npm run build:web` 时处理
 4. 改完自查:本仓库已配截图自检 skill(见 `~/.claude/skills` 侧 ui-screenshot-check),登录 cookie 从 `data/songhamster.db` 的 `auth_session` 表取(服务端已加 no-store,普通刷新即可)
 5. 提交粒度:一页一 commit,中文消息
 
@@ -126,7 +139,7 @@ setsid bash -c 'nohup npm run dev >> server.log 2>&1 < /dev/null & echo $! > ser
 
 1. **根字号**:pico 桥 `:root{font-size:var(--pico-font-size)}` 宽屏放大到 125% → LAYOUT 里 `:root{font-size:16px}` 钉死(曾致所有 rem 控件虚大 25%)
 2. **Tailwind 变体/任意值类在本项目常失效**(md:grid-cols-2、grid-cols-[…] 时灵时不灵)→ 布局一律自带 CSS 类 `.fg/.lxg/.ch2/.prow/.hist-tab`,不要新写变体依赖
-3. **新增 daisy/tailwind 类后必须 `npm run build:css`**(content 扫描 src/views+render.ts;未编译症状:无边框 select、w-2 圆点不可见、grid 不生效)
+3. **改前端后要 `npm run build:web`**（Tailwind 由 Vite 处理；`npm run dev` 只起后端，不会自动构建前端）
 4. **改 .eta 必须重启进程**(eta cache:true;tsx 不监听 .eta)。重启要杀干净防僵尸占端口(见 §8),症状:改了没生效=旧进程服务
 5. **daisy 主题变量是裸通道值**(--b1=`100% 0 0`),不能直接当颜色用;`oklch(var(--b1))` 嵌套在渐变里整条失效 → 需要处用字面量 oklch + 媒体查询,或用完整颜色变量(如 --sfg 本身是完整 oklch 字符串,var(--sfg) 可直接用)
 6. **pico 桥特异性战争**(加载序在 daisy 后):`button[type=submit]{width:100%}` → 需更高特异覆盖;`label:has(radio){width:fit-content}` → label 显式 width:100%;input 尺寸规则带 !important;`.btn` 去 line-height/padding 干扰

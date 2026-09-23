@@ -1,5 +1,12 @@
-node_modules
-dist
+# 依赖与构建产物：镜像里自己装、自己编译，别把宿主机的带进去。
+# ⚠️ 写 `**/` 前缀而不是裸 `node_modules` —— `web/` 下也各有一份，
+#    万一匹配不到子目录，Dockerfile 里的 `COPY web ./web` 就会把宿主机的
+#    node_modules 覆盖进镜像：本机构建看不出来（同为 amd64），
+#    交叉构建 arm64 时却会用 amd64 的依赖盖掉刚装好的 arm64 依赖，arm64 镜像直接坏掉。
+#    显式写全，两种匹配语义下都安全（顺带让构建上下文小一大截）。
+**/node_modules
+**/dist
+
 data
 .git
 *.log

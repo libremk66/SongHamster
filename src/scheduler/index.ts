@@ -4,14 +4,13 @@ import type { AppConfig } from '../config.js'
 import type { SyncEngine } from '../core/sync-engine.js'
 import type { LxServerAdapter } from '../adapters/lxserver.js'
 import * as repo from '../store/repo.js'
-import { autoaddScan } from '../core/autoadd.js'
 import { listenScan } from '../core/listen.js'
 import { logger } from '../core/logger.js'
 
 /**
  * 调度器：任务 cron + 自动新增检测 cron
  * - sync_task.cronExpr 非空且 enabled 的任务 → 到点 engine.runTask(id, 'cron')
- * - general.autoadd 开启且有 checkCron → 到点 autoaddScan
+ * - general.listen 开启且有 checkCron → 到点 listenScan
  * 配置变更后调用 reload() 重建计划
  */
 export class Scheduler {
@@ -54,9 +53,8 @@ export class Scheduler {
       }
     }
 
-    // 监听检测:新模型 listen 优先;未启用时回退旧 autoadd(迁移兼容)
+    // 监听检测（旧 autoadd 已删除，2026-09-23 全量切到 listen）
     const L = cfg.general.listen
-    const a = cfg.general.autoadd
     if (L.enabled && L.checkCron?.trim()) {
       try {
         const job = cron.schedule(L.checkCron.trim(), () => {
@@ -66,16 +64,6 @@ export class Scheduler {
         logger.info(`[scheduler] 监听检测定时(${L.activeMode}): ${L.checkCron}`)
       } catch (e) {
         logger.warn(`[scheduler] listen cron 无效: ${L.checkCron}(${(e as Error).message})`)
-      }
-    } else if (a.enabled && a.checkCron?.trim()) {
-      try {
-        const job = cron.schedule(a.checkCron.trim(), () => {
-          void autoaddScan(cfg, this.lx, this.engine)
-        })
-        this.jobs.push(job)
-        logger.info(`[scheduler] 自动新增检测定时(旧): ${a.checkCron}`)
-      } catch (e) {
-        logger.warn(`[scheduler] autoadd cron 无效: ${a.checkCron}`)
       }
     }
   }

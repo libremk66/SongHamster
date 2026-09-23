@@ -1,7 +1,8 @@
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import fs from 'node:fs'
 import path from 'node:path'
-import { loadConfig, saveConfig, DB_PATH } from './config.js'
+import { loadConfig, DB_PATH, VERSION } from './config.js'
 import { getDb } from './store/db.js'
 import * as repo from './store/repo.js'
 import { LxServerAdapter } from './adapters/lxserver.js'
@@ -12,10 +13,8 @@ import { SubsonicAdapter } from './adapters/subsonic.js'
 import type { MediaServerAdapter } from './adapters/media-server.js'
 import { SyncEngine } from './core/sync-engine.js'
 import { Scheduler } from './scheduler/index.js'
-import { pagesRouter } from './routes/pages.js'
 import { apiRouter } from './routes/api.js'
-import { renderBody, VERSION } from './views/render.js'
-import { authRequired, createSession, destroySession, initAuthFromEnv, isSessionValid, verifyPassword, COOKIE_NAME } from './auth.js'
+import { authRequired, createSession, destroySession, initAuthFromEnv, isSessionValid, verifyPassword, COOKIE_NAME, SESSION_DAYS } from './auth.js'
 import { logger } from './core/logger.js'
 
 const config = loadConfig()
@@ -39,10 +38,26 @@ function makeServer(): MediaServerAdapter {
   return new EmbyAdapter(() => config)
 }
 
-// 可变服务器适配器：target 切换（POST /api/config/target）即换实例，引擎/路由经由 proxy 透明跟随
+/*
+  媒体服务器适配器：**跟着 cfg.target 自动换实例**。
+
+  ⚠️ 为什么要在"每次取属性"时自查，而不是切换时显式重建一次：
+     适配器在**构造时**就绑死了配置段（EmbyAdapter 的 segment='emby'|'jellyfin'、
+     NavidromeAdapter 读 cfg().navidrome），构造完再改 cfg.target 它不会跟着变。
+     而切目标的入口不止一条（旧 htmx 端点、React 的 /connect/apply-json），
+     之前只有其中一条会重建 —— 结果从界面切了目标、提示写着"已设为同步目标"，
+     实际同步仍旧打在旧服务器上，直到重启进程才生效。
+     改成"取属性时自查"就不可能再漏：任何路径改了 target，下次调用自动生效。
+*/
+let cachedTarget = config.target
 let serverImpl: MediaServerAdapter = makeServer()
 const server: MediaServerAdapter = new Proxy({} as MediaServerAdapter, {
   get: (_t, p) => {
+    if (cachedTarget !== config.target) {
+      cachedTarget = config.target
+      serverImpl = makeServer()
+      logger.info(`[server] 同步目标已切到 ${cachedTarget}，适配器已重建`)
+    }
     const v = (serverImpl as any)[p]
     return typeof v === 'function' ? v.bind(serverImpl) : v
   },
@@ -59,7 +74,6 @@ app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
 app.use('/static', express.static(path.join(process.cwd(), 'static')))
 
-// HTML 页面响应不缓存（模板迭代频繁，避免浏览器缓存旧页面造成"改动没生效"的误判）
 app.use((req, res, next) => {
   if (!req.path.includes('.')) res.set('Cache-Control', 'no-store')
   next()
@@ -71,9 +85,8 @@ app.get('/healthz', (_req, res) => {
 })
 
 // ===== 登录页（认证白名单） =====
-app.get('/login', (_req, res) => {
-  res.type('html').send(renderBody('login', { authEnabled: config.auth.enabled }))
-})
+// 旧登录页已删（2026-09-23 全量切到 React SPA）
+app.get('/login', (_req, res) => res.redirect('/app/login'))
 
 app.post('/api/auth/login', (req, res) => {
   const b = req.body ?? {}
@@ -82,7 +95,13 @@ app.post('/api/auth/login', (req, res) => {
   if (!config.auth.enabled) return res.status(400).json({ ok: false, error: '认证未启用' })
   if (u === config.auth.username && verifyPassword(p, config.auth.passwordHash)) {
     const token = createSession(u)
-    res.cookie(COOKIE_NAME, token, { httpOnly: true, sameSite: 'lax', maxAge: 30 * 86400_000, path: '/' })
+    // 「保持登录」默认开：不勾就不带 maxAge → 浏览器**会话 Cookie**，关掉浏览器即失效。
+    // 服务端那条会话记录仍是 SESSION_DAYS 天，只是 Cookie 没了就够不着。
+    const raw = b.remember
+    const remember = !(raw === false || raw === 0 || raw === '0' || raw === 'false')
+    const cookie: { httpOnly: boolean; sameSite: 'lax'; path: string; maxAge?: number } = { httpOnly: true, sameSite: 'lax', path: '/' }
+    if (remember) cookie.maxAge = SESSION_DAYS * 86400_000
+    res.cookie(COOKIE_NAME, token, cookie)
     res.json({ ok: true })
   } else {
     res.status(401).json({ ok: false, error: '用户名或密码错误' })
@@ -93,7 +112,12 @@ app.post('/api/auth/logout', (req, res) => {
   const token = (req.cookies as Record<string, string>)?.[COOKIE_NAME]
   if (token) destroySession(token)
   res.clearCookie(COOKIE_NAME, { path: '/' })
-  res.redirect('/login')
+  // 表单直投（旧登录页遗留的调用方式）给 302，fetch 给 JSON —— 只认 Accept，不看 UA。
+  if (req.get('accept')?.includes('application/json')) {
+    res.json({ ok: true })
+    return
+  }
+  res.redirect('/app/login')
 })
 
 app.get('/api/auth/status', (req, res) => {
@@ -103,21 +127,21 @@ app.get('/api/auth/status', (req, res) => {
 // ===== 其余页面与 API 均需认证（开启时） =====
 app.use(authRequired(() => config))
 
-// 媒体服务器目标切换（emby | navidrome）：保存并即时重建适配器（引擎/路由经 proxy 自动跟随）
-app.post('/api/config/target', (req, res) => {
-  const t = String((req.body ?? {}).target ?? '')
-  if (t !== 'emby' && t !== 'navidrome' && t !== 'daoliyu' && t !== 'subsonic' && t !== 'jellyfin') {
-    return res.status(400).send('<span class="bad">❌ 未知目标</span>')
-  }
-  config.target = t
-  saveConfig(config)
-  serverImpl = makeServer()
-  logger.info(`[server] 媒体服务器目标切换为 ${t}`)
-  res.send(`<span class="ok">✅ 已切换目标：${t === 'navidrome' ? 'Navidrome' : t === 'daoliyu' ? '道理鱼' : t === 'subsonic' ? 'Subsonic' : t === 'jellyfin' ? 'Jellyfin' : 'Emby'}（同步任务将操作该服务器）</span>`)
-})
-
 app.use('/api', apiRouter(config, lx, server, engine, scheduler))
-app.use('/', pagesRouter(() => config, lx, server))
+
+// ===== React SPA（唯一界面；旧 Eta 页面已于 2026-09-23 全部删除）=====
+const WEB_DIST = path.join(process.cwd(), 'web', 'dist')
+const SPA_INDEX = path.join(WEB_DIST, 'index.html')
+if (fs.existsSync(SPA_INDEX)) {
+  app.use('/app', express.static(WEB_DIST, { index: false }))
+  // SPA 路由回退：/app 下非静态文件的路径一律交给前端路由
+  app.get(/^\/app(?:\/.*)?$/, (_req, res) => res.sendFile(SPA_INDEX))
+  logger.info('[web] React SPA 已挂载于 /app')
+} else {
+  logger.info('[web] 未找到 web/dist —— /app 暂不可用。构建后再试：npm run build:web')
+}
+
+app.get('/', (_req, res) => res.redirect('/app'))
 
 logger.info(`[auth] 账号认证: ${config.auth.enabled ? `已启用（${config.auth.username}）` : '未启用（设置页可开启）'}`)
 {
