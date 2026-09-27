@@ -138,8 +138,8 @@ LX Sync Server（歌单数据同步服务 · 下载引擎）
 而映射到媒体服务器侧时这层会被去掉，所以媒体库根要**直接指到那个「歌单同步」目录**：
 
 ```
-SongHamster 视角:  /data/music/king/歌单同步/我喜欢的/晴天.flac
-媒体服务器视角:     /media/music/king/歌单同步/我喜欢的/晴天.flac
+SongHamster 视角:  /data/music/user1/歌单同步/我喜欢的/晴天.flac
+媒体服务器视角:     /media/music/user1/歌单同步/我喜欢的/晴天.flac
                    ↑ 同一条路径，只是各自容器里的名字不同
 ```
 
