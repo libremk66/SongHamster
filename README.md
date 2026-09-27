@@ -8,9 +8,9 @@
 
 把 [LX Music Sync Server](https://github.com/XCQ0607/lxserver)（lxserver）里的歌单和榜单订阅**自动下载**（完整标签 / 封面 / 歌词）并同步进你的音乐媒体库与播放列表。
 
-支持 **Emby / Navidrome / Jellyfin / 道理鱼 / Subsonic（飞牛等）** 五种媒体服务器，在「连接容器」页切换。
+支持 **Emby / Navidrome / Jellyfin / 道理鱼 / Subsonic（飞牛等）** 五种媒体服务器。
 
-📱 **手机 / 平板 / 桌面自适应**：窄屏下侧栏收进左上角抽屉，页面标题不再重复占位，列表改成适合手指操作的紧凑排版 —— 手机浏览器打开即用，不用另装 App，躺在沙发上翻同步进度和歌曲明细都没问题。
+📱 **支持移动端**
 
 > **镜像**：`libremk66/songhamster`（Docker Hub，多架构 amd64 + arm64）
 > **协议**：Apache-2.0　·　**运行方式**：Docker（推荐）或 Node.js ≥ 22
@@ -105,15 +105,9 @@ LX Sync Server（歌单数据同步服务 · 下载引擎）
 | 日志 | 落盘日志，级别筛选 + 关键字搜索 |
 | 设置 | 通用（日志保留天数）、账号安全、通知 |
 
-界面是 React SPA（`web/`），挂在 `/app`；根路径 `/` 自动跳过去。侧栏底部有版本号与「退出登录」。
-
-**手机端**做了三处专门适配：导航只留左上角抽屉（没有底部标签栏）；页面标题不显示（顶栏已经写着）；列表换成手指友好的排版 —— 卡片一行一张、历史记录点行尾展开明细、榜单选择收进下拉。
-
 ---
 
 ## 四、快速开始（Docker 部署）
-
-镜像 **`libremk66/songhamster:latest`**（Docker Hub，多架构 `linux/amd64` + `linux/arm64`，拉取时自动匹配你的机器）。容器内运行目录 `/app`，配置与数据库在 `/app/data`（首次启动自动生成默认 `config.yaml`）。
 
 ### ⚠️ 先搞懂目录映射：三方共用同一个目录，但各自看到的名字不同
 
@@ -184,9 +178,7 @@ services:
       - "8935:8935"
     environment:
       SONGHAMSTER_AUTH_USER: admin            # 首次启动自动启用认证
-      SONGHAMSTER_AUTH_PASSWORD: change-me    # 一定要改
-      # ⚠️ LX / 媒体服务器的连接信息**不写在这里** —— 启动后在网页「连接容器」页填。
-      #    环境变量优先级高于 config.yaml，写在这里会把界面里配的覆盖掉。
+      SONGHAMSTER_AUTH_PASSWORD: change-me    # 自行修改登录密码
     volumes:
       - ./music-data:/data/music              # ← 与 lxserver / Emby 共享的同一目录
       - ./songhamster-data:/app/data          #   配置(config.yaml) + 数据库
@@ -264,12 +256,6 @@ docker stop songhamster && docker rm songhamster
 ❌ 入库失败（1）—— 下了但媒体库没收录，建议手动处理
 · 特别的人 / 方大同 —— 等待超时仍未索引到条目
 ```
-
-几条设计取舍：
-
-- **通知永远不影响同步**：每个渠道 8 秒超时，发送异常只记一行日志（`[notify] xx 发送失败`），不会冒泡到同步流程
-- **「发送测试」用当前填写的内容试发**，不必先保存 —— 配错了立刻就能发现
-- 只做**单向推送**（没有按钮 / 回调 / 账号绑定），所以不引入任何额外依赖
 
 ---
 
