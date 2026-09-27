@@ -233,10 +233,6 @@ export function apiRouter(
     res.json({ ...r, target: cfg.target })
   })
 
-  r.post('/connect/paths-check', async (_req, res) => {
-    res.json({ lines: await runPathCheck() })
-  })
-
   // ===== 榜单订阅 API =====
   // 平台显示名：统一用**短名**（`QQ·新歌榜`，不是 `QQ音乐·新歌榜`），
   // 也是榜单任务没填名字时的兜底名。改这里会让新旧任务名不一致，别随手动。
@@ -922,57 +918,6 @@ export function apiRouter(
     if (!b) return '—'
     return (b / 1048576).toFixed(1) + ' MB'
   }
-  // ===== 路径自检（部署引导） =====
-  /** 路径自检：结构化结果，HTML 版与 JSON 版共用同一份判断逻辑 */
-  type PathCheckLine = { level: 'ok' | 'bad' | 'hint'; text: string; detail?: string }
-  const runPathCheck = async (): Promise<PathCheckLine[]> => {
-    const { existsSync, writeFileSync, rmSync } = await import('node:fs')
-    const lines: PathCheckLine[] = []
-    const dl = cfg.lxserver.downloadRoot
-    // 1. 下载目录可写
-    if (!dl) {
-      lines.push({ level: 'bad', text: '未配置 LX 下载目录' })
-    } else if (!existsSync(dl)) {
-      lines.push({ level: 'bad', text: `下载目录不存在：${dl}`, detail: '检查卷挂载路径是否与界面填写一致' })
-    } else {
-      try {
-        const t = dl.replace(/\/+$/, '') + '/.write_test'
-        writeFileSync(t, 'x')
-        rmSync(t)
-        lines.push({ level: 'ok', text: `下载目录可写：${dl}` })
-      } catch {
-        lines.push({ level: 'bad', text: `下载目录不可写：${dl}` })
-      }
-    }
-    // 2. Emby 媒体库匹配
-    if (!cfg.emby.baseUrl || !cfg.emby.apiKey) {
-      lines.push({ level: 'hint', text: 'Emby 未连接，跳过媒体库匹配检查' })
-    } else {
-      try {
-        const libs = await emby.listLibraries()
-        const root = cfg.emby.libraryRoot?.replace(/\/+$/, '')
-        const hit = libs.find((l) => l.locations.some((p) => (p.replace(/\/+$/, '') === root) || p.replace(/\/+$/, '').startsWith(root + '/') || (root && root.startsWith(p.replace(/\/+$/, '') + '/'))))
-        if (hit) {
-          lines.push({ level: 'ok', text: `已匹配媒体库「${hit.name}」（Id=${hit.id}）` })
-        } else if (root) {
-          lines.push({
-            level: 'bad',
-            text: `未匹配到媒体库：现有音乐库：${libs.map((l) => `${l.name}(${l.locations[0] || '?'})`).join('、')}`,
-            detail: '请确认 libraryRoot 填的是 Emby 容器内看到的路径，且媒体库确实指向它',
-          })
-        } else {
-          lines.push({ level: 'hint', text: '未填 Emby 媒体库根路径，可点击「探测媒体库」辅助' })
-        }
-      } catch (e) {
-        lines.push({ level: 'bad', text: `Emby 探测失败：${(e as Error).message}` })
-      }
-    }
-    // 3. 视角提示
-    lines.push({ level: 'hint', text: '提示：两个路径字段是同一目录在不同容器里的名字；本机直跑则填宿主机真实路径。Docker 部署参照 docker-compose.example.yml。' })
-    return lines
-  }
-
-
   // ===== 日志 =====
   // 按级别/关键字过滤（数据源 = 落盘文件，重启不丢）
   r.get('/logs', (req, res) => {
