@@ -115,19 +115,45 @@ LX Sync Server（歌单数据同步服务 · 下载引擎）
 
 镜像 **`libremk66/songhamster:latest`**（Docker Hub，多架构 `linux/amd64` + `linux/arm64`，拉取时自动匹配你的机器）。容器内运行目录 `/app`，配置与数据库在 `/app/data`（首次启动自动生成默认 `config.yaml`）。
 
-![三方 Docker 部署：路径映射与「连接容器」页填法](docs/path-mapping-diagram.png)
+### ⚠️ 先搞懂目录映射：三方共用同一个目录，但各自看到的名字不同
 
-> ☝️ 三方（lxserver / 媒体服务器 / SongHamster）**共享同一批音乐文件**，但各容器看到的路径名不同。
-> 于是「连接容器」页那两个路径字段 —— **⚠️ 它们填的不是同一个目录，差一层「歌单同步」**：
->
-> | 界面框 | 填**哪个**的视角 | 指向**哪一层** |
-> |---|---|---|
-> | **LX 下载目录** | SongHamster 自己 | 「歌单同步」的**父目录** |
-> | **媒体库根路径** | 媒体服务器 | 「歌单同步」**本身** |
->
-> 另外：**「测试连接」和「路径自检」都验不出这两个填错**（前者只验 API 连通性，后者只验目录存在且可写），
-> 填错的后果要到真跑同步才暴露。自查判据、lxserver「自定义音乐目录」多一层的情况，见
-> [docs/path-mapping.md](docs/path-mapping.md)。
+把宿主机上**同一个目录**分别挂给三个容器，它们各自用**自己的路径名**访问它。
+注意 lxserver **按用户名分目录**放下载文件，所以实际用到的路径里还多一层 `<用户名>/`：
+
+```
+宿主机（唯一真相源）              容器内看到的路径                        谁在这里做什么
+<你的路径>/music-data/            ← 三个容器都挂这一层
+    └── <用户名>/                 ← lxserver 按用户分目录，下载落在这一层（如 king/）
+         ├── <歌单同步>/           ← SongHamster 整理后的歌单文件放这儿
+         └── …
+
+  挂给 lxserver     →  /server/music/<用户名>/        LX 下载落盘写这里
+  挂给媒体服务器     →  /media/music/<用户名>/         媒体库扫描这里
+  挂给 SongHamster  →  /data/music/<用户名>/          本项目读 / 移动 / 洗版
+```
+
+「连接容器」页里要填的每个路径，都必须是**对应容器自己看到的那个名字**，**不是你宿主机的路径**。
+两个路径字段填的还**不是同一个目录**，差一层「歌单同步」：
+
+| 界面框 | 填**哪个容器**的视角 | 以上面为例填 | 指向**哪一层** |
+|---|---|---|---|
+| **LX 下载目录** | SongHamster 自己 | `/data/music/<用户名>` | 「歌单同步」的**父目录** |
+| **媒体库根路径** | 媒体服务器 | `/media/music/<用户名>/歌单同步` | 「歌单同步」**本身** |
+
+**为什么差一层** —— 代码会在「LX 下载目录」下面自己拼 `歌单同步/<歌单名>/`，
+而映射到媒体服务器侧时这层会被去掉，所以媒体库根要**直接指到那个「歌单同步」目录**：
+
+```
+SongHamster 视角:  /data/music/king/歌单同步/我喜欢的/晴天.flac
+媒体服务器视角:     /media/music/king/歌单同步/我喜欢的/晴天.flac
+                   ↑ 同一条路径，只是各自容器里的名字不同
+```
+
+> 📌 **两个自查要点**（`docs/path-mapping.md` 里有详细展开）：
+> - **`<用户名>` 这层不能漏** —— 少填一层不会报错，但要到真跑同步才暴露。
+>   判据：那一层下面必须**同时**有 `歌单同步/` 和 `.songhamster-trash/`（后者是本项目自己建的回收站）
+> - **「测试连接」和「路径自检」都验不出这两个填错**（前者只验 API 连通性，后者只验目录存在且可写），
+>   填错的后果要到真跑同步才暴露
 
 ### 方式一：docker run（最简）
 
@@ -142,11 +168,9 @@ docker run -d --name songhamster \
   libremk66/songhamster:latest
 ```
 
-打开 `http://<nas>:8935` → 用上面的账号登录 → 到「连接容器」页填 LX 与媒体服务器的信息。
+打开 `http://<nas>:8935` → 用上面的账号登录 → 到「连接容器」页填 LX 与媒体服务器的信息（**这一步不能省**，填完自动存进 data 卷里的 `config.yaml`）。
 
-> `-v /你的路径/music-data:/data/music` 就是**与 lxserver、媒体服务器共享的同一个目录**。
-> 连接信息也可以用环境变量注入，省去界面填写：
-> `-e SONGHAMSTER_LXSERVER_URL=http://lxserver:19527 -e SONGHAMSTER_LXSERVER_KEY=lx_tk_xxx -e SONGHAMSTER_EMBY_URL=http://emby:8096 -e SONGHAMSTER_EMBY_KEY=xxx`
+> `-v /你的路径/music-data:/data/music` 就是**与 lxserver、媒体服务器共享的同一个目录**（见上方的目录映射说明）。
 
 ### 方式二：docker compose（推荐）
 
@@ -161,10 +185,8 @@ services:
     environment:
       SONGHAMSTER_AUTH_USER: admin            # 首次启动自动启用认证
       SONGHAMSTER_AUTH_PASSWORD: change-me    # 一定要改
-      SONGHAMSTER_LXSERVER_URL: http://lxserver:19527
-      SONGHAMSTER_LXSERVER_KEY: <lx 用户 token>
-      SONGHAMSTER_EMBY_URL: http://emby:8096
-      SONGHAMSTER_EMBY_KEY: <emby api key>
+      # ⚠️ LX / 媒体服务器的连接信息**不写在这里** —— 启动后在网页「连接容器」页填。
+      #    环境变量优先级高于 config.yaml，写在这里会把界面里配的覆盖掉。
     volumes:
       - ./music-data:/data/music              # ← 与 lxserver / Emby 共享的同一目录
       - ./songhamster-data:/app/data          #   配置(config.yaml) + 数据库
@@ -409,8 +431,13 @@ npm start          # node dist/server.js
 
 > **改 `web/` 下的代码必须重新 `npm run build:web`**（或者另开一个终端跑 `npm run dev:web` 起 vite 热更新）。`npm run dev` 只起后端，不会自动构建前端。
 
-环境变量（docker secrets 注入用）：
-`SONGHAMSTER_AUTH_USER` / `SONGHAMSTER_AUTH_PASSWORD` / `SONGHAMSTER_LXSERVER_URL` / `SONGHAMSTER_LXSERVER_KEY` / `SONGHAMSTER_EMBY_URL` / `SONGHAMSTER_EMBY_KEY` / `SONGHAMSTER_PORT`
+环境变量（docker secrets 注入用，**优先级高于 `config.yaml`**）：
+`SONGHAMSTER_AUTH_USER` / `SONGHAMSTER_AUTH_PASSWORD` / `SONGHAMSTER_LXSERVER_URL` / `SONGHAMSTER_LXSERVER_KEY` / `SONGHAMSTER_LXSERVER_USER` / `SONGHAMSTER_EMBY_URL` / `SONGHAMSTER_EMBY_KEY` / `SONGHAMSTER_PORT`
+
+> ⚠️ 其中 `SONGHAMSTER_LXSERVER_*` / `SONGHAMSTER_EMBY_*` 是**注入初始值**用的：
+> 一旦设了，**每次启动都会覆盖**你在界面「连接容器」页配的连接信息。
+> **普通部署别设这四个** —— 启动后在网页里填就行（会存进 data 卷的 `config.yaml`）。
+> 只有在**无人值守部署**（没有界面交互）时才需要它们。
 
 ---
 

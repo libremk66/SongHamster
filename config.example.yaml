@@ -89,8 +89,10 @@ advanced:
   dedupMinQuality: null
 
 # ------------------------------------------------------------
-# Docker 环境变量覆盖（可选，优先级最高）
+# Docker 环境变量覆盖（可选，**优先级高于本文件**）
 #   SONGHAMSTER_AUTH_USER / SONGHAMSTER_AUTH_PASSWORD  首启自动启用登录
+#   ⚠️ 下面两行是「注入初始值」，设了会**每次启动都覆盖**本文件里配的连接信息。
+#      普通部署**别设**，启动后在网页「连接容器」页填即可；只有无人值守部署才需要。
 #   SONGHAMSTER_LXSERVER_URL / SONGHAMSTER_LXSERVER_KEY / SONGHAMSTER_LXSERVER_USER
 #   SONGHAMSTER_EMBY_URL / SONGHAMSTER_EMBY_KEY
 #   SONGHAMSTER_PORT
