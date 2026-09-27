@@ -73,8 +73,8 @@
 | **加曲** | **`POST /api/playlists/{id}/tracks/batch` body `{"trackIds":[...]}`** | ✅ 201 返回加入条目（单曲 POST /tracks 404 无效——用 batch） |
 | **删曲** | ❌ 主 API 无端点；`/rest/removeFromPlaylist` 报 Unknown endpoint（subsonic 层未实现）；reorder 需全量（count mismatch，不能隐式删） | **缺口：完全同步删曲不可用 → Daoliyu 适配强制增量（只增不删）** |
 | 歌曲搜索 | `GET /api/tracks?search=关键词` | ✅ 精确匹配（title/query/q 参数无效——用 search） |
-| 歌曲字段 | tracks 返回 | ✅ 音质字段齐全：sampleRate/bitDepth/bitrate/detectedContainer/fileFormat/fileSize/durationSeconds；**filePath 为容器内绝对路径（/D8/...）**——与 Emby 相同可前缀翻译 |
-| 媒体库根 | `GET /api/admin/scan-paths` | ✅ 本机根 = `/D8/MOVIEPILOT/MUSIC/MusicTagWeb/LINK/LXSERVER/king`（与 downloadRoot 同源，135 文件，REALTIME 自动监听） |
+| 歌曲字段 | tracks 返回 | ✅ 音质字段齐全：sampleRate/bitDepth/bitrate/detectedContainer/fileFormat/fileSize/durationSeconds；**filePath 为容器内绝对路径（/srv/lxmusic）**——与 Emby 相同可前缀翻译 |
+| 媒体库根 | `GET /api/admin/scan-paths` | ✅ 本机根 = `/srv/lxmusic/user1`（与 downloadRoot 同源，135 文件，REALTIME 自动监听） |
 | 扫描触发 | `POST /api/admin/scan`（scan-tasks/tasks 任务体系） | ✅ 存在（REALTIME 下通常无需手动） |
 
 **删曲/回收站补充探测（2026-09-06）**：用户从 Web UI 看到"移入回收站"操作，但 REST 层不存在：

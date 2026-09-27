@@ -11,7 +11,7 @@ lxserver:
   # 用户 token（界面可配，属敏感信息）
   apiKey: ""
   # 下载归属用户名（lxserver 的多用户下载身份）
-  username: king
+  username: admin
   # 下载根目录（LX 落盘目录，SongHamster 会读写/移动文件；与 Emby 媒体库同源时查重可回收）
   downloadRoot: ""
 

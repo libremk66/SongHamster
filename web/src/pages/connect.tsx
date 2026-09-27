@@ -151,7 +151,7 @@ function LxForm({ lx }: { lx: ConnectData['lx'] }) {
               <Input
                 id="lx-username"
                 value={form.username}
-                placeholder="king"
+                placeholder="lxserver 里的下载用户名"
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
               />
             </div>
@@ -159,13 +159,25 @@ function LxForm({ lx }: { lx: ConnectData['lx'] }) {
               <Label htmlFor="lx-downloadRoot">
                 <FieldLabel className="mb-0 flex items-center gap-1.5">
                   LX 下载目录<span className="text-destructive">*</span>
-                  <InfoTip>填本项目视角的路径（本项目要读写它）</InfoTip>
+                  <InfoTip>
+                    <b>本项目（音乐仓鼠）视角</b>的路径，不是 lxserver 的。
+                    <br />
+                    指向「<b>歌单同步</b>」的<b>父目录</b> —— 代码会在它下面自己拼 <code>歌单同步/&lt;歌单名&gt;/</code>。
+                    <br />
+                    <br />
+                    判定办法：这一层下面应该<b>同时</b>有 <code>歌单同步/</code> 和 <code>.songhamster-trash/</code>
+                    （后者是本项目自己建的回收站）。
+                    <br />
+                    <br />
+                    ⚠️ lxserver 若给用户设了「自定义音乐目录」，会多一层用户名目录，
+                    要填到那一层（如 <code>/data/music/user1</code>）。
+                  </InfoTip>
                 </FieldLabel>
               </Label>
               <Input
                 id="lx-downloadRoot"
                 value={form.downloadRoot}
-                placeholder="容器部署: /data/music；本机直跑: 宿主机路径"
+                placeholder="如 /data/music/user1（歌单同步 的父目录）"
                 onChange={(e) => setForm({ ...form, downloadRoot: e.target.value })}
               />
             </div>

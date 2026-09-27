@@ -147,7 +147,7 @@ LX 歌单拉取 → LX 下载（标签/封面/歌词）→ file-manager 落盘 <
 |---|---|---|
 | 登录 | `POST /auth/login` body `{"username","password"}` | 返回 `{token(JWT), username, isAdmin, subsonicToken...}`；token 24h（ND_SESSIONTIMEOUT） |
 | **认证头** | **`X-ND-Authorization: Bearer <jwt>`** | ⚠️ 唯一有效形式：裸 token 放 X-ND 头、标准 `Authorization: Bearer` 均 401（实测） |
-| 媒体库列表 | `GET /api/library` | `[{id, name, path, totalSongs...}]`；本机「LX同步音乐」id=2，path=`/D8/.../LXSERVER/king`（容器视角，与 downloadRoot 同源） |
+| 媒体库列表 | `GET /api/library` | `[{id, name, path, totalSongs...}]`；本机「LX同步音乐」id=2，path=`/srv/lxmusic/user1`（容器视角，与 downloadRoot 同源） |
 | 歌曲分页 | `GET /api/song?_start=0&_end=50` | 每首含 `id(22位base62)/path(相对库根)/title/artist/album/bitRate/sampleRate/bitDepth/suffix/size/duration/lyrics(JSON)` |
 | 歌曲过滤 | `GET /api/song?title=终于` | **title LIKE 部分匹配**（大小写不敏感）；artist/album/name/orderArtistName 过滤均无效（实测 0 或全量）→ 用 title 粗查 + 本地 artist 归一过滤 |
 | 播放列表列表 | `GET /api/playlist` | 数组；每项含 id/name/size/duration |

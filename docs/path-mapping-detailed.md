@@ -109,35 +109,70 @@ services:
 
 | 界面字段 | 填什么 | 为什么 |
 |---------|--------|--------|
-| LX 下载目录 `downloadRoot` | **本项目容器内** `/data/music` | SongHamster 要读写它（移动/校验/洗版） |
+| LX 下载目录 `downloadRoot` | **本项目容器内**的路径，指向「歌单同步」的**父目录**（简单情况是 `/data/music`，见下方「注意层级」） | SongHamster 要读写它（移动/校验/洗版） |
 | Emby 媒体库根 `libraryRoot` | **Emby 容器内**的**媒体库文件夹路径**（Emby 后台给该媒体库选的路径，如 `/media/music/歌单同步`） | 与 Emby API 返回的媒体库位置匹配（可点"探测媒体库"自动识别） |
-| 曲库洗版目录 | 默认 `/data/music/曲库洗版`（可改） | 独立目录，旧文件零触碰 |
+| 曲库洗版目录 | 默认 `<downloadRoot>/曲库洗版`（可改） | 独立目录，旧文件零触碰 |
 
-**注意层级**：`downloadRoot` 填共享目录根（`/data/music`）即可——SongHamster 会自动在其下创建
-`歌单同步/<歌单名>/` 存放歌单文件、`曲库洗版/` 存放洗版新版。
-不要再往深指（如填到 `.../歌单同步` 会导致嵌套 `歌单同步/歌单同步/`）。
+> ⚠️ **两个字段填的不是同一个目录**：`libraryRoot` 指向「歌单同步」**本身**，
+> `downloadRoot` 指向它的**父目录**（映射时中间那层会被去掉，见 `src/core/paths.ts` 的文件头注释）。
+
+**注意层级**：`downloadRoot` 要指向「歌单同步」的父目录 —— SongHamster 会自动在其下创建
+`歌单同步/<歌单名>/` 存放歌单文件、`曲库洗版/` 与 `.songhamster-trash/`。
+
+**两种常见情况**：
+
+| 情况 | `downloadRoot` 填 | 说明 |
+|------|------------------|------|
+| lxserver **没设**「自定义音乐目录」 | 共享目录根，如 `/data/music` | lxserver 直接把文件写到根下 |
+| lxserver **设了**「自定义音乐目录」（`customMusicDir`） | **往里进一层**，如 `/data/music/user1` | lxserver 按用户分目录，多出 `<用户名>/` 这层 |
+
+> 💡 **怎么判断该填哪层**：那一层下面必须**同时**有 `歌单同步/` 和 `.songhamster-trash/`
+> —— 后者是 SongHamster 自己建的回收站（`src/core/trash.ts:29`），它出现在哪层，哪层就是答案。
+>
+> ⚠️ 别再往深指（填到 `.../歌单同步` 会导致嵌套 `歌单同步/歌单同步/`）。
 
 ## 数据流转示意
 
+下面按「lxserver 设了自定义音乐目录（按用户分目录）」画 —— 这是更常见也更容易填错的情况：
+
 ```
-LXServer 下载 → /server/music/<user>/xxx.flac（宿主机 ./music/xxx.flac）
-                    │ SongHamster 移动
+LXServer 下载 → /server/music/user1/xxx.flac
+                （宿主机 ./music/user1/xxx.flac；文件名是 lxserver 的索引名「歌名 - 歌手 - 音质 - 专辑.ext」）
+                    │ SongHamster 移动（下载根 = ./music/user1 这一层）
                     ▼
-        /data/music/歌单同步/<歌单名>/xxx.flac（宿主机 ./music/歌单同步/...）
-                    │ Emby 扫描 /media/music
+        /data/music/user1/歌单同步/<歌单名>/晴天.flac（宿主机 ./music/user1/歌单同步/...）
+                    │ Emby 扫描（媒体库文件夹 = /media/music/user1/歌单同步 这一层）
                     ▼
         Emby 媒体库入库 → 加入播放列表
 ```
 
+对应界面里就是 **`downloadRoot` = `/data/music/user1`**、**`libraryRoot` = `/media/music/user1/歌单同步`**
+（注意：前者是后者的**父目录的父目录**，中间隔着 `user1/` 和 `歌单同步/` 两层）。
+
+> 若 lxserver **没设**自定义音乐目录，去掉上面所有 `user1/` 那层即可。
+
 ## 常见错误自查
+
+> ⚠️ **先记住：这些错，界面上的两个检查都验不出来。**
+>
+> | 检查 | 实际验什么 |
+> |---|---|
+> | 「测试连接」（LX） | 只打一次 `GET /api/user/list`，**纯 API 连通性** |
+> | 「路径自检」下载目录那行 | 只验目录**存在且可写**（写个 `.write_test` 再删） |
+> | 「路径自检」媒体库那行 | 媒体库匹配（**父子双向都认**） |
+>
+> 所以填错路径时它们照样报绿，**要到真跑同步才暴露**：要么报
+> `源文件不存在: <下载目录>/xxx.flac`，要么在错的层级下新建一套空的 `歌单同步/`。
 
 | 症状 | 原因 | 修复 |
 |------|------|------|
-| 下载文件出现在 lxserver 但 SongHamster 找不到 | SongHamster 容器没挂这目录 / 挂载点路径填错 | 检查 `./music` 是否也挂给了 songhamster；`downloadRoot` 填 `/data/music` |
-| Emby 扫不到新歌单 | 媒体库文件夹没指向共享目录（或指向了别处） | 在 Emby 后台把媒体库文件夹指向共享目录挂载点下的路径（如 `/media/music/歌单同步`） |
+| 两个检查全绿，但同步报「源文件不存在」 | `downloadRoot` 少了一层（lxserver 设了自定义音乐目录） | 往里进一层到 `<用户名>/`（见「界面填写对照表 · 两种常见情况」） |
+| 冒出一个新的空 `歌单同步/`，Emby 却没新歌 | 同上 —— 文件被搬到错的层级去了 | 同上；搬错的文件要手工挪回 `user1/歌单同步/` |
+| 下载文件出现在 lxserver 但 SongHamster 找不到 | SongHamster 容器没挂这目录 / 挂载点路径填错 | 检查 `./music` 是否也挂给了 songhamster |
+| Emby 扫不到新歌单 | 媒体库文件夹没指向共享目录（或指向了别处） | 在 Emby 后台把媒体库文件夹指向共享目录挂载点下的路径（如 `/media/music/user1/歌单同步`） |
 | 路径自检报"目录不存在/不可写" | 填了容器内不存在的路径（如宿主机路径） | downloadRoot 必须填**本项目容器内**看到的路径 |
-| 出现 `歌单同步/歌单同步/` | downloadRoot 指得太深 | downloadRoot 指向共享目录根 |
-| 本机 npm run dev（非 Docker） | 无容器隔离 | downloadRoot 填宿主机路径；libraryRoot 填 Emby 里该媒体库显示的位置（如 /D8/.../LXSERVER/king/歌单同步） |
+| 出现 `歌单同步/歌单同步/` | downloadRoot 指得太深（指到「歌单同步」本身了） | 回退到「歌单同步」的**父目录** |
+| 本机 npm run dev（非 Docker） | 无容器隔离 | downloadRoot 填宿主机路径（如 `/srv/lxmusic/user1`）；libraryRoot 填 Emby 里该媒体库显示的位置（如 `/srv/lxmusic/user1/歌单同步`） |
 
 ## 完整 compose 参考
 

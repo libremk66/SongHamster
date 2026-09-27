@@ -216,7 +216,7 @@ export function apiRouter(
     const b = (req.body ?? {}) as Record<string, unknown>
     cfg.lxserver.baseUrl = String(b.baseUrl ?? '').trim()
     cfg.lxserver.apiKey = String(b.apiKey ?? '').trim()
-    cfg.lxserver.username = String(b.username ?? 'king').trim() || 'king'
+    cfg.lxserver.username = String(b.username ?? 'admin').trim() || 'admin'
     cfg.lxserver.downloadRoot = String(b.downloadRoot ?? '').trim()
     saveConfig(cfg)
     res.json({ ok: true, message: 'LX 连接配置已保存' })

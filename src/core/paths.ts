@@ -1,3 +1,20 @@
+/**
+ * 本地路径 ↔ 媒体服务器路径的换算。
+ *
+ * ⚠️ **两个配置字段指的不是同一个目录，差一层「歌单同步」**，这是这块最容易搞错的点：
+ *
+ * ```
+ * 本地（lxserver.downloadRoot）:  <下载目录>/歌单同步/<歌单名>/晴天.flac
+ *                                      ↑ 这一层由 file-manager 拼，映射到服务器侧时会被去掉
+ * 服务器（emby.libraryRoot）:      <媒体库根>/<歌单名>/晴天.flac
+ * ```
+ *
+ * 所以 `downloadRoot` 填「歌单同步」的**父目录**、`libraryRoot` 填「歌单同步」**本身**。
+ * 两边各自是**对应容器/进程的视角**，不是同一个字符串。
+ *
+ * ⚠️ 「测试连接」和「路径自检」都**验不出填错**（前者只验 API 连通性，后者只验目录存在且可写），
+ *    填错的后果要到真跑同步才暴露 —— 排查方法与自查判据见 docs/path-mapping.md。
+ */
 import path from 'node:path'
 import type { AppConfig } from '../config.js'
 

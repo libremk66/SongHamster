@@ -13,7 +13,7 @@
 #   · 曲库洗版输出目录          = /data/music/曲库洗版   （自动默认）
 #
 # 本机直接运行（npm run dev）时没有容器视角差异，downloadRoot/libraryRoot 都填
-# 宿主机真实路径即可（如 /media/hxsy/.../LXSERVER/king）。
+# 宿主机真实路径即可（如 /srv/lxmusic/user1）。
 
 services:
   # --- LX Music Sync Server（音乐下载引擎） ---

@@ -23,7 +23,7 @@
 |------|------|---------|
 | `PATH_MUSIC` | 宿主机音乐共享目录（三个容器共用） | `/srv/songhamster/music`（可让用户指定任意位置） |
 | `PATH_SONGHAMSTER_DATA` | 本项目配置与数据库目录 | `PATH_MUSIC` 同级 `/srv/songhamster/data` |
-| lxserver 是否已部署 | 有则取：地址/端口/用户名(king)/用户 token | — |
+| lxserver 是否已部署 | 有则取：地址/端口/用户名（如 admin）/用户 token | — |
 | emby 是否已部署 | 有则取：地址/端口/API key | — |
 | 端口占用 | 9527(lxserver) 8096(emby) 8935(本项目) 是否可用 | 冲突则换宿主机端口 |
 | web 账号 | 后续 web 登录用（初始可不设，首次访问未启用认证） | admin / 由用户设 |
@@ -126,7 +126,7 @@ docker compose ps            # 三个容器应为 Up
 > `POST /api/auth/login {username,password}` → 记住返回 cookie。
 
 1. **写入连接配置**（POST 表单到 `/api/config/lx` 与 `/api/config/emby`，字段见连接容器页）：
-   - lxserver：baseUrl（容器内 `http://lxserver:9527` 或宿主地址）、apiKey、username（下载用户名，默认 king）、downloadRoot=`/data/music`
+   - lxserver：baseUrl（容器内 `http://lxserver:9527` 或宿主地址）、apiKey、username（下载用户名，默认 admin）、downloadRoot=`/data/music`
    - emby：baseUrl、apiKey、libraryRoot（见第 5 步媒体库文件夹）
 2. **运行路径自检**：`POST /api/paths/check` → 期望三行全绿（下载目录可写 + 媒体库匹配成功）。
    失败时按返回提示修复（多为卷未挂全/媒体库未建/视角填错）。

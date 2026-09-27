@@ -91,7 +91,7 @@ export class EmbyAdapter implements MediaServerAdapter {
   /**
    * 根据 libraryRoot 探测媒体库 Id（精确扫描用）
    * ⚠️ MediaFolders API 不返回 Path；用 VirtualFolders 的 Locations 匹配
-   * libraryRoot 用 Emby 视角路径（如 /D8/.../LXSERVER/king/歌单同步）
+   * libraryRoot 用 Emby 视角路径（如 /srv/lxmusic/user1/歌单同步）
    */
   async resolveLibraryId(): Promise<string | null> {
     if (!this.c.libraryRoot) return null

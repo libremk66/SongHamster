@@ -28,7 +28,7 @@ const ROOT_FIELD: ServerFieldSpec = {
   k: 'libraryRoot',
   label: '媒体库根路径',
   wide: true,
-  hint: '媒体服务器视角的路径（用于匹配媒体库 + 把宿主机路径换算过去）',
+  hint: '媒体服务器视角的路径，指向「歌单同步」目录本身（不是它的父目录）',
 }
 
 export const SERVER_SPECS: ServerSpec[] = [
@@ -41,7 +41,7 @@ export const SERVER_SPECS: ServerSpec[] = [
     fields: [
       { k: 'baseUrl', label: '服务器地址', ph: 'http://127.0.0.1:8096' },
       { k: 'apiKey', label: 'API key', password: true, hint: 'Emby 后台 → 设置 → API 密钥' },
-      { ...ROOT_FIELD, ph: '如 /D8/MOVIEPILOT/MUSIC/.../LXSERVER/king' },
+      { ...ROOT_FIELD, ph: '如 /srv/lxmusic/user1/歌单同步' },
     ],
   },
   {

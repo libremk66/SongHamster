@@ -208,7 +208,11 @@ export interface DownloadProtection {
 export interface EmbyServerCfg {
   baseUrl: string
   apiKey: string
-  /** 媒体库根路径（服务器容器视角，用于探测库；如 /D8/.../LXSERVER/king/歌单同步） */
+  /**
+   * 媒体库根路径 —— **媒体服务器视角**的路径，且要指到「歌单同步」**目录本身**
+   * （不是它的父目录，与 `lxserver.downloadRoot` 差一层；换算见 core/paths.ts）。
+   * 本机直跑如 `/srv/lxmusic/user1/歌单同步`。
+   */
   libraryRoot: string
   /** 媒体库 Id（连接后自动探测填入） */
   mediaLibraryId?: string
@@ -220,7 +224,16 @@ export interface AppConfig {
     apiKey: string
     /** lxserver 下载需要 x-user-name（容器内用户目录标识） */
     username: string
-    /** 下载落盘根目录（宿主机路径，如 .../LXSERVER/king）——Emby 库扫描此目录的子目录 */
+    /**
+     * 下载落盘根目录 —— ⚠️ **本项目（音乐仓鼠）视角**的路径，不是 lxserver 的。
+     *
+     * 代码会在它下面自己拼 `歌单同步/<歌单名>/`，所以这里填的是「歌单同步」的**父目录**，
+     * 本机直跑如 `/srv/lxmusic/user1`，容器里则是那个目录挂进容器后的名字（如 `/data/music/user1`）。
+     *
+     * 判定办法：这一层下面应**同时**有 `歌单同步/` 和 `.songhamster-trash/`（后者是 trash.ts 建的）。
+     * ⚠️ lxserver 给用户设了「自定义音乐目录」（customMusicDir）时会多一层用户名目录，
+     *    那就得填到那一层 —— 少填一层不会报错，但要到真跑同步才暴露（详见 docs/path-mapping.md）。
+     */
     downloadRoot: string
   }
   emby: EmbyServerCfg
@@ -229,7 +242,7 @@ export interface AppConfig {
     baseUrl: string
     username: string
     password: string
-    /** 媒体库根路径（Navidrome 视角，用于匹配库；如 /D8/.../LXSERVER/king） */
+    /** 媒体库根路径（Navidrome 视角，用于匹配库；如 /srv/lxmusic/user1） */
     libraryRoot: string
     /** 媒体库 Id（连接后自动探测填入） */
     libraryId?: string
@@ -239,7 +252,7 @@ export interface AppConfig {
     /** 管理员邮箱（登录用） */
     username: string
     password: string
-    /** 媒体库根路径（Daoliyu 容器视角，与 downloadRoot 同源；如 /D8/.../LXSERVER/king） */
+    /** 媒体库根路径（Daoliyu 容器视角，与 downloadRoot 同源；如 /srv/lxmusic/user1） */
     libraryRoot: string
   }
   subsonic: {
@@ -314,7 +327,7 @@ function defaultNotifyEvents(): NotifyConfig['channels']['feishu']['events'] {
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
-  lxserver: { baseUrl: 'http://127.0.0.1:19527', apiKey: '', username: 'king', downloadRoot: '' },
+  lxserver: { baseUrl: 'http://127.0.0.1:19527', apiKey: '', username: 'admin', downloadRoot: '' },
   emby: { baseUrl: 'http://127.0.0.1:8096', apiKey: '', libraryRoot: '' },
   navidrome: { baseUrl: '', username: '', password: '', libraryRoot: '' },
   daoliyu: { baseUrl: '', username: '', password: '', libraryRoot: '' },

@@ -43,7 +43,7 @@
 - 连接成功 → 显示现有播放列表（下拉/勾选数据源）
 
 ### 3.2 媒体库根路径
-- 单个全局根路径（Emby 扫描的媒体库根，如 `/music/LINK/LXSERVER/king/歌单同步`）
+- 单个全局根路径（Emby 扫描的媒体库根，如 `/music/.../user1/歌单同步`）
 - ⚠️ 需要向用户说明"共享卷"概念：lxserver 下载落盘目录与 Emby 媒体库必须是同一可见路径
 
 ### 3.3 同步映射表（核心交互）
@@ -163,7 +163,7 @@ LX 歌单（loveList / 自建歌单）
 lxserver:
   baseUrl: ""        # 界面填
   apiKey: ""
-  username: "king"   # ⚠️ x-user-name，lxserver 下载必需（非默认值）
+  username: "admin"   # ⚠️ x-user-name，lxserver 下载必需（非默认值）
 emby:
   baseUrl: ""
   apiKey: ""
