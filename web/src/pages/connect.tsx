@@ -242,18 +242,16 @@ function ServerSection({
         </div>
 
         {/* 当前选项卡对应的表单 —— key 保证换服务器时重建，不残留上一台的输入 */}
-        <ServerForm key={active.key} spec={active} isTarget={active.key === target} onApplied={onApplied} />
+        <ServerForm key={active.key} spec={active} onApplied={onApplied} />
       </div>
   )
 }
 
 function ServerForm({
   spec,
-  isTarget,
   onApplied,
 }: {
   spec: ServerSpec
-  isTarget: boolean
   onApplied: () => void
 }) {
   const [values, setValues] = useState<Record<string, string>>(spec.values)
@@ -270,9 +268,6 @@ function ServerForm({
 
   return (
     <div className="space-y-4">
-      {isTarget && (
-        <p className="text-xs text-muted-foreground">当前同步目标就是这台（绿点）</p>
-      )}
       <div className="rounded-lg border bg-card p-3">
         <div className="grid gap-4 md:grid-cols-2">
           {spec.fields.map((f) => (

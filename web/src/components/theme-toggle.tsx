@@ -43,16 +43,21 @@ export function ThemeToggle({ className }: { className?: string }) {
           type="button"
           variant={mode === m.key ? 'secondary' : 'ghost'}
           size="sm"
-          className="h-7 flex-1 gap-1 px-1.5 text-xs max-md:h-10"
+          className="h-7 flex-1 px-1.5 max-md:h-10"
           aria-pressed={mode === m.key}
+          /*
+            只留图标（侧栏位置紧，三个字的标签占了大半宽度）。
+            ⚠️ 文字去掉后 `title` 不再是可靠的可访问名称（读屏未必念），
+               必须显式给 aria-label —— 否则读屏只会念「按钮」。
+          */
+          aria-label={THEME_LABEL[m.key]}
           title={THEME_LABEL[m.key]}
           onClick={() => {
             setMode(m.key)
             setTheme(m.key)
           }}
         >
-          <m.icon className="size-3.5" />
-          <span className="max-md:inline md:hidden lg:inline">{THEME_LABEL[m.key]}</span>
+          <m.icon className="size-4" />
         </Button>
       ))}
     </div>
