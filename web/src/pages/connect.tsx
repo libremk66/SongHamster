@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Eye, EyeOff, Plug, Save, Activity } from 'lucide-react'
+import { Eye, EyeOff, Plug, Save } from 'lucide-react'
 
 import { DelayedLoading } from '@/components/loading'
 import { FormMessage } from '@/components/form-message'
@@ -25,7 +25,6 @@ type ConnectData = {
   target: string
   servers: ServerSpec[]
 }
-type PathLine = { level: 'ok' | 'bad' | 'hint'; text: string; detail?: string }
 type Result = { ok: boolean; message: string; level?: 'ok' | 'warn' | 'bad' }
 
 export function ConnectPage() {
@@ -47,7 +46,6 @@ export function ConnectPage() {
         <>
           <LxForm lx={data.lx} />
           <ServerSection servers={data.servers} target={data.target} onApplied={() => void refetch()} />
-          <PathCheckSection />
         </>
       )}
     </div>
@@ -316,51 +314,3 @@ function ServerForm({
   )
 }
 
-/* ── 三、路径自检 ──────────────────────────────── */
-function PathCheckSection() {
-  const [lines, setLines] = useState<PathLine[] | null>(null)
-  const check = useMutation({
-    mutationFn: () => api.post<{ lines: PathLine[] }>('/connect/paths-check', {}),
-    onSuccess: (r) => setLines(r.lines),
-    onError: (e) =>
-      setLines([{ level: 'bad', text: e instanceof Error ? e.message : '自检失败' }]),
-  })
-
-  return (
-    <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <SectionTitle className="flex flex-1 items-center gap-1.5">
-            路径自检
-            <InfoTip>检查下载目录可写、媒体库匹配情况，并给出路径关系提示</InfoTip>
-          </SectionTitle>
-          <Button type="button" variant="outline" onClick={() => check.mutate()} disabled={check.isPending}>
-            <Activity />
-            运行自检
-          </Button>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <div className="min-h-10 space-y-1 text-sm">
-            {/* 说明文字收进「i」之后这里就空了 —— 空盒子比一行提示更让人困惑，补个空状态 */}
-            {lines === null ? (
-              <p className="text-xs text-muted-foreground">还没跑过自检，点右侧「运行自检」</p>
-            ) : (
-              lines.map((l, i) => (
-                <p
-                  key={i}
-                  className={cn(
-                    l.level === 'ok' && 'text-emerald-700 dark:text-emerald-400',
-                    l.level === 'bad' && 'text-destructive',
-                    l.level === 'hint' && 'text-xs text-muted-foreground',
-                  )}
-                >
-                  {l.level === 'ok' ? '✅ ' : l.level === 'bad' ? '❌ ' : ''}
-                  {l.text}
-                  {l.detail && <span className="block text-xs text-muted-foreground">{l.detail}</span>}
-                </p>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-  )
-}

@@ -129,23 +129,25 @@ docker compose ps            # 三个容器应为 Up
 > 若设置了 `SONGHAMSTER_AUTH_USER`，所有请求需先登录：
 > `POST /api/auth/login {username,password}` → 记住返回 cookie。
 
-1. **写入连接配置**（POST 表单到 `/api/config/lx` 与 `/api/config/emby`，字段见连接容器页）：
-   - lxserver：baseUrl（容器内 `http://lxserver:9527` 或宿主地址）、apiKey、username（下载用户名，默认 admin）、downloadRoot=`/data/music`
+1. **写入连接配置**（POST 表单到 `/api/connect/lx` 与 `/api/connect/apply-json`，字段见连接容器页）：
+   - lxserver：baseUrl（容器内 `http://lxserver:9527` 或宿主地址）、apiKey、username（下载用户名，默认 admin）、downloadRoot=`/data/music/<用户名>`（见 path-mapping.md，`<用户名>` 那层不能漏）
    - emby：baseUrl、apiKey、libraryRoot（见第 5 步媒体库文件夹）
-2. **运行路径自检**：`POST /api/paths/check` → 期望三行全绿（下载目录可写 + 媒体库匹配成功）。
-   失败时按返回提示修复（多为卷未挂全/媒体库未建/视角填错）。
+2. **路径字段照 [path-mapping.md](path-mapping.md) 填** —— 别猜：
+   那里讲清了三方各自看到的路径、`<用户名>/` 那层不能漏、以及唯一可靠的判据。
+   ⚠️ 界面上**没有**"路径自检"这类捷径（曾有过，只验"目录存在且可写"，填错也全绿，已删除），
+   填错要等真跑同步才暴露。
 3. **曲库洗版目录**：无需配置，自动默认 `<downloadRoot>/曲库洗版`。
 
 ---
 
 ## 5. 在 Emby 建立音乐媒体库（AI 可自动执行）
 
-- 目标：一个音乐媒体库（推荐名 `LX歌单同步`），文件夹 = Emby 容器内 `/media/music/歌单同步`。
+- 目标：一个音乐媒体库（推荐名 `LX歌单同步`），文件夹 = Emby 容器内 `/media/music/<用户名>/歌单同步`。
 - 可用 Emby API 创建（LibraryService.CreateVirtualFolder）：
   `POST /emby/Library/VirtualFolders?name=LX%E6%AD%8C%E5%8D%95%E5%90%8C%E6%AD%A5&collectionType=music&refreshLibrary=true`
-  携带 JSON：`{"LibraryOptions":{"EnableInternetProviders":false},"Paths":["/media/music/歌单同步"]}`
-- 若 API 创建失败（权限/版本差异）：**指导用户在 Emby 后台手动添加**（添加媒体库 → 类型"音乐" → 文件夹 `/media/music/歌单同步`）。
-- 创建后执行本项目"探测媒体库"（`POST /api/emby/probe`，或让用户在界面点按钮），确认 `libraryRoot` 与 Id 已匹配（路径自检全绿为准）。
+  携带 JSON：`{"LibraryOptions":{"EnableInternetProviders":false},"Paths":["/media/music/<用户名>/歌单同步"]}`
+- 若 API 创建失败（权限/版本差异）：**指导用户在 Emby 后台手动添加**（添加媒体库 → 类型"音乐" → 文件夹 `/media/music/<用户名>/歌单同步`）。
+- 创建后执行本项目"探测媒体库"（`POST /api/emby/probe`，或让用户在界面点按钮），确认 `libraryRoot` 与库 Id 已匹配。
 
 ---
 
@@ -178,8 +180,8 @@ docker compose ps            # 三个容器应为 Up
 
 | 症状 | 检查 | 修复 |
 |------|------|------|
-| songhamster 找不到下载文件 | 路径自检"下载目录"行 | downloadRoot 容器路径与卷不一致；PATH_MUSIC 未挂给 songhamster |
-| Emby 扫不到 | `POST /api/paths/check` 媒体库行 / Emby 日志 | 媒体库文件夹 ≠ /media/music/歌单同步；未刷新库 |
+| songhamster 找不到下载文件 | `downloadRoot` 是否指到 `<用户名>/` 那层（判据见 path-mapping.md） | 少一层则文件找不到；PATH_MUSIC 未挂给 songhamster 也会找不到 |
+| Emby 扫不到 | `libraryRoot` 与 Emby 媒体库实际路径是否一致 / Emby 日志 | 媒体库文件夹 ≠ /media/music/<用户名>/歌单同步；未刷新库 |
 | 任务一直失败"搜索失败/直链失败" | lxserver 用户 token 是否有效、音源是否可用 | 换 token；检查 lxserver 自定义源状态 |
 | 同名歌单不自动建 | 行为 B 设计：同名已存在提示 | 需用户在界面处理或改目标（加入已有歌单） |
 | 认证 401 | cookie 失效 | 重新 login |
