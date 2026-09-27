@@ -2,15 +2,22 @@
 #
 # 核心思想：三方共享同一个「音乐数据目录」，只是各自容器内看到的路径不同。
 #
-#   宿主机 ./music-data（唯一真相源）
-#      ├── 挂给 lxserver → 容器内 /server/music    （LX 下载写这里）
-#      ├── 挂给 Emby    → 容器内 /media/music   （媒体库扫描这里）
-#      └── 挂给 songhamster → 容器内 /data/music    （本项目读/移动/洗版）
+#   宿主机 ./music-data（唯一真相源，三个容器都挂这一层）
+#      └── <用户名>/                     ← lxserver 按用户分目录，下载落在这一层
+#           └── 歌单同步/                 ← SongHamster 整理后的歌单文件
 #
-# 界面配置时（web 设置 → 连接容器）：
-#   · LX 下载目录 downloadRoot  = /data/music          （本项目容器内路径）
-#   · Emby 媒体库根 libraryRoot = /media/music         （Emby 容器内路径，用于探测匹配）
-#   · 曲库洗版输出目录          = /data/music/曲库洗版   （自动默认）
+#   同一层目录，各容器看到的名字不同：
+#      挂给 lxserver     → 容器内 /server/music/<用户名>/   （LX 下载写这里）
+#      挂给 Emby         → 容器内 /media/music/<用户名>/     （媒体库扫描这里）
+#      挂给 songhamster  → 容器内 /data/music/<用户名>/      （本项目读/移动/洗版）
+#
+# 界面配置时（web 设置 → 连接容器）—— ⚠️ 两个字段**差一层「歌单同步」**：
+#   · LX 下载目录 downloadRoot  = /data/music/<用户名>            （「歌单同步」的**父目录**）
+#   · Emby 媒体库根 libraryRoot = /media/music/<用户名>/歌单同步   （「歌单同步」**本身**）
+#   · 曲库洗版输出目录          = <downloadRoot>/曲库洗版            （自动默认）
+#
+# 判据：downloadRoot 指的那层下面必须**同时**有 `歌单同步/` 和 `.songhamster-trash/`
+#       （后者是本项目自己建的回收站）—— 它在哪层，哪层就是下载根。
 #
 # 本机直接运行（npm run dev）时没有容器视角差异，downloadRoot/libraryRoot 都填
 # 宿主机真实路径即可（如 /srv/lxmusic/user1）。
@@ -51,10 +58,9 @@ services:
     environment:
       SONGHAMSTER_AUTH_USER: admin            # 初始账号（首次启动自动启用认证）
       SONGHAMSTER_AUTH_PASSWORD: change-me
-      SONGHAMSTER_LXSERVER_URL: http://lxserver:9527
-      SONGHAMSTER_LXSERVER_KEY: <lx用户token>
-      SONGHAMSTER_EMBY_URL: http://emby:8096
-      SONGHAMSTER_EMBY_KEY: <emby api key>
+      # ⚠️ LX / Emby 的连接信息**不写在这里** —— 首次启动后在网页「连接容器」页填，
+      #    会存进下面的 config.yaml（data 卷里，重启不丢）。
+      #    环境变量优先级高于 config.yaml，写在这里会把界面里配的**覆盖掉**。
     volumes:
       - ./music-data:/data/music        # ← 同一目录：本项目下载根 + 歌单目录 + 曲库洗版
       - ./songhamster-data:/app/data      #   配置(config.yaml)与数据库放这里（应用工作目录是 /app）

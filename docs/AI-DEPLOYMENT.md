@@ -69,6 +69,9 @@ services:
     environment:
       SONGHAMSTER_AUTH_USER: <用户决定>         # 可选：设置则自动启用登录
       SONGHAMSTER_AUTH_PASSWORD: <用户决定>
+      # ⚠️ 下面四个是「注入初始值」用的，仅在**无人值守部署**（无界面交互）时才需要：
+      #    它们的优先级高于 config.yaml，设了会**每次启动都覆盖**界面里配的连接信息。
+      #    有人值守的部署**别写这四个**，启动后在「连接容器」页填即可。
       SONGHAMSTER_LXSERVER_URL: http://lxserver:9527
       SONGHAMSTER_LXSERVER_KEY: <lxserver 用户 token>
       SONGHAMSTER_EMBY_URL: http://emby:8096
@@ -91,6 +94,7 @@ services:
     ports: ["8935:8935"]
     environment:
       SONGHAMSTER_AUTH_USER/PASSWORD: ...
+      # ⚠️ 同上：只在无人值守部署时用；设了会覆盖界面里配的连接信息
       SONGHAMSTER_LXSERVER_URL: http://<宿主IP>:<lxserver端口>
       SONGHAMSTER_LXSERVER_KEY: <token>
       SONGHAMSTER_EMBY_URL: http://<宿主IP>:<emby端口>
