@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- SongHamster · 音乐仓鼠 —— 与 DockHamster 同一套设计语言，顶部元素换成露出的半张黑胶 -->
+  <rect width="128" height="128" rx="28" fill="#7E9B6A"/>
+  <!-- 大侧耳 -->
+  <circle cx="19" cy="62" r="14" fill="#FFFFFF"/>
+  <circle cx="19" cy="62" r="6.5" fill="#F3E3C3"/>
+  <circle cx="109" cy="62" r="14" fill="#FFFFFF"/>
+  <circle cx="109" cy="62" r="6.5" fill="#F3E3C3"/>
+  <!-- 黑胶（只露出上半张） -->
+  <circle cx="64" cy="46" r="30" fill="#111827"/>
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="1.2">
+    <circle cx="64" cy="46" r="25.5"/>
+    <circle cx="64" cy="46" r="21.5"/>
+    <circle cx="64" cy="46" r="17.5"/>
+  </g>
+  <path d="M42 30 A30 30 0 0 1 58 17" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="64" cy="46" r="9.5" fill="#F59E0B"/>
+  <circle cx="64" cy="46" r="2.4" fill="#7E9B6A"/>
+  <!-- 脸 -->
+  <path d="M28 56 L100 56 C104 76 98 100 64 104 C30 100 24 76 28 56 Z" fill="#FFFFFF"/>
+  <ellipse cx="46" cy="91" rx="6" ry="4.2" fill="#F7EAD0"/>
+  <ellipse cx="82" cy="91" rx="6" ry="4.2" fill="#F7EAD0"/>
+  <circle cx="54" cy="76" r="3.5" fill="#1E3A8A"/>
+  <circle cx="74" cy="76" r="3.5" fill="#1E3A8A"/>
+  <circle cx="64" cy="86" r="3.1" fill="#1E3A8A"/>
+  <path d="M58.5 91 Q61.2 94.7 64 91 Q66.8 94.7 69.5 91"
+        stroke="#1E3A8A" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>
