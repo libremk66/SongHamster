@@ -9,7 +9,7 @@
 - Gitee `wangzaifan/daoliyu-music`：旧版 Node 架构，与当前部署的 vnext（Go 后端）**不兼容**，仅参考 UI 理念
 - 官方文档站 daoliyu.cn：SPA，无公开源码；API 文档由运行实例自带（`/api/openapi.json` + `/api/docs` Swagger UI）
 
-## 二、运行实例 API 面（本机 192.0.2.10:15373 实测）
+## 二、运行实例 API 面（本机实测）
 
 - **OpenAPI 规范**：`GET /api/openapi.json`（58KB，196 路径，版本 2026.07.21）
 - **Swagger UI**：`/api/docs`
@@ -58,7 +58,7 @@
 
 ---
 
-## 附录：实机 API 实测结论（2026-09-06，本机 15373，管理员账号）
+## 附录：实机 API 实测结论（2026-09-06，本机运行实例，管理员账号）
 
 > 全部端点对运行实例实测。登录：`POST /api/auth/login` body `{email, password}` → `{token: JWT, user:{role: ADMIN}}`；
 > 后续请求 `Authorization: Bearer <token>`。
