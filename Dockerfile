@@ -5,11 +5,18 @@
 # 构建:  docker build -t songhamster .
 # 运行:  参照 docker-compose.example.yml（挂载音乐目录 + data 卷）
 # ============================================================
+# apt 镜像源：国内/本机构建走阿里云加速；GitHub Actions（境外）传空串走官方源。
+# 用法：docker build --build-arg APT_MIRROR= .   （留空 = 不换源）
+ARG APT_MIRROR=mirrors.aliyun.com
+
 FROM node:22-bookworm-slim AS build
+ARG APT_MIRROR
 WORKDIR /app
 
-# better-sqlite3 原生模块编译工具链（apt 源换阿里云加速；仅在构建层需要）
-RUN printf 'Types: deb\nURIs: http://mirrors.aliyun.com/debian\nSuites: bookworm bookworm-updates\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\nTypes: deb\nURIs: http://mirrors.aliyun.com/debian-security\nSuites: bookworm-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' > /etc/apt/sources.list.d/debian.sources \
+# better-sqlite3 原生模块编译工具链（仅在构建层需要）
+RUN if [ -n "$APT_MIRROR" ]; then \
+      printf 'Types: deb\nURIs: http://%s/debian\nSuites: bookworm bookworm-updates\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\nTypes: deb\nURIs: http://%s/debian-security\nSuites: bookworm-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' "$APT_MIRROR" "$APT_MIRROR" > /etc/apt/sources.list.d/debian.sources; \
+    fi \
  && apt-get update \
  && apt-get install -y --no-install-recommends python3 make g++ \
  && rm -rf /var/lib/apt/lists/*

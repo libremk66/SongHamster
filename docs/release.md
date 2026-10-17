@@ -2,6 +2,16 @@
 
 > 给未来的自己：这份文档只关心"怎么把一个版本发出去"。用户怎么部署见 [README](../README.md) 的「快速开始」。
 
+## 〇、镜像谁来构建：GitHub Actions（2026-10-17 起）
+
+推 `main` → `.github/workflows/build.yml` 自动构建 **amd64 + arm64** 并推 Docker Hub
+（`latest` + `package.json` 里的版本号），最后起临时容器打 `/healthz` 校验版本号。
+
+- 仓库需配好两个 secret：`DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`（Token 在 Docker Hub → Account Settings → Security 生成，权限 Read & Write）
+- **纯文档提交请带 `[skip ci]`** —— 否则照样会重新构建镜像（等于偷偷发了一版）
+- Dockerfile 的 `APT_MIRROR` 默认 `mirrors.aliyun.com`（国内快）；CI 传空串走官方源（见 workflow 的 `build-args`）
+- 本机兜底：`sudo bash scripts/release-docker.sh`（CI 挂掉或离线时用，见第五节）
+
 ## 一、发一版，按这个顺序
 
 ```bash
@@ -16,27 +26,25 @@ cd <本仓库目录>
 # 2) 补 CHANGELOG.md（新版本写在最上面）
 #    格式照抄已有条目：标题、分了哪几块、每块几条
 
-# 3) 提交并推 GitHub
+# 3) 提交并推 GitHub —— 推送即触发镜像构建（Actions 页的 build-push）
 git add -A && git commit -m "chore: 版本号 x.y.z（本版要点）"
-#    推送要带 token（本机没配 git 凭据，见 memory/github-songhamster-push）
+git push origin main
 
-# 4) 构建并推送镜像（需要 sudo，docker 只允许 root）
-sudo bash scripts/release-docker.sh
-
-# 5) 验证：从 Docker Hub API 看两个架构是否都上去了（不需要 sudo）
+# 4) 等 Actions 跑完（约 5-15 分钟，arm64 走 QEMU 较慢），验证两个架构都上去了
 curl -s "https://hub.docker.com/v2/repositories/libremk66/songhamster/tags?page_size=25" \
   | python3 -c "import json,sys;[print(t['name'], sorted({i['architecture'] for i in t.get('images',[])})) for t in json.load(sys.stdin)['results']]"
 
-# 6) 打 tag + 发 Release（⚠️ tag 必须打在**构建镜像的那个提交**上，见第六节）
-git tag -a v0.5.0 594eef0 -m "v0.5.0 — 一句话要点"   # 提交号 = 构建镜像时的 HEAD
-git push origin v0.5.0                                # 推送要带 token（同第 3 步）
+# 5) 打 tag + 发 Release（⚠️ tag 必须打在**构建镜像的那个提交**上，见第六节）
+git tag -a v0.7.0 2c454ea -m "v0.7.0 — 一句话要点"
+git push origin v0.7.0
 #    正文直接复用 CHANGELOG 对应段落：网页 Draft a new release，或走 API：
 #    curl -X POST -H "Authorization: token $TOKEN" --data @/tmp/release.json \
 #      https://api.github.com/repos/libremk66/songhamster/releases
 #    （body 字段放 CHANGELOG 段落即可；draft/prerelease 都填 false）
 ```
 
-脚本最后会**冒烟验证**：拉远端镜像起临时容器打 `/healthz`，通了才打印 🎉。
+> 版本号变了但**不想**触发构建？提交信息带 `[skip ci]`，或去 Actions 页手动取消那次 run。
+> 本机兜底脚本（`scripts/release-docker.sh`）最后也会**冒烟验证**：拉远端镜像起临时容器打 `/healthz`。
 
 ## 二、标签策略
 
