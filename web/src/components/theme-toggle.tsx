@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { applyTheme, getTheme, setTheme, THEME_LABEL, type ThemeMode } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -12,7 +11,11 @@ const MODES: { key: ThemeMode; icon: typeof Sun }[] = [
 ]
 
 /**
- * 三态主题切换。首次挂载时把偏好同步到 <html>（index.html 里的内联脚本已做过一次，
+ * 三态主题切换（浅色 / 深色 / 跟随系统）。
+ * 样式对齐 DockHamster 侧栏底部的分段控件：外层浅灰底 + 内边距，
+ * 选中项白底浮起，未选中项透明、hover 才亮。
+ *
+ * 首次挂载时把偏好同步到 <html>（index.html 里的内联脚本已做过一次，
  * 这里是为了处理"跟随系统"下系统配色变化、以及从别处改过偏好后的同步）。
  */
 export function ThemeToggle({ className }: { className?: string }) {
@@ -33,17 +36,20 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn('flex items-center gap-1 rounded-md border p-0.5', className)}
+      className={cn('flex items-center gap-1 rounded-lg bg-sidebar-accent/70 p-1', className)}
       role="group"
       aria-label="主题"
     >
       {MODES.map((m) => (
-        <Button
+        <button
           key={m.key}
           type="button"
-          variant={mode === m.key ? 'secondary' : 'ghost'}
-          size="sm"
-          className="h-7 flex-1 px-1.5 max-md:h-10"
+          className={cn(
+            'flex h-8 flex-1 items-center justify-center rounded-md transition-colors max-md:h-10',
+            mode === m.key
+              ? 'bg-card text-primary shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
           aria-pressed={mode === m.key}
           /*
             只留图标（侧栏位置紧，三个字的标签占了大半宽度）。
@@ -58,7 +64,7 @@ export function ThemeToggle({ className }: { className?: string }) {
           }}
         >
           <m.icon className="size-4" />
-        </Button>
+        </button>
       ))}
     </div>
   )

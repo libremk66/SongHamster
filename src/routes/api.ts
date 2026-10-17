@@ -14,6 +14,7 @@ import { Scheduler } from '../scheduler/index.js'
 import { listenScan, originOfMode } from '../core/listen.js'
 import { hashPassword, verifyPassword } from '../auth.js'
 import { listTrash, restoreFromTrash, purgePath } from '../core/trash.js'
+import { runLxCheck } from '../core/lx-check.js'
 import { localizeEmbyPath } from '../core/paths.js'
 import * as HMeta from '../core/history-meta.js'
 import { NOTIFY_EVENTS, CHANNEL_LABEL, CHANNEL_GROUPS, testChannel, type NotifyChannelType, type NotifyConfig } from '../core/notify.js'
@@ -103,27 +104,47 @@ export function apiRouter(
   }
 
 
-  /** 按类型把表单字段写进对应配置段（与各 /config/* 保持同一套字段名） */
-  const applyServerCfg = (type: string, b: Record<string, unknown>): void => {
+  /**
+   * 把表单字段合并进**指定配置对象**的对应段（纯函数：正式保存与临时探测共用，
+   * 避免两处字段名漂移 —— 2026-10-16 媒体库下拉引入）。
+   * 传入的 target 可以是全局 cfg（正式保存），也可以是配置副本（探测，不落盘）。
+   */
+  const mergeServerValues = (target: AppConfig, type: string, b: Record<string, unknown>): void => {
     const g = (k: string) => String(b[k] ?? '').trim()
     if (type === 'emby') {
-      cfg.emby.baseUrl = g('baseUrl'); cfg.emby.apiKey = g('apiKey'); cfg.emby.libraryRoot = g('libraryRoot')
+      target.emby.baseUrl = g('baseUrl'); target.emby.apiKey = g('apiKey'); target.emby.libraryRoot = g('libraryRoot')
     } else if (type === 'jellyfin') {
-      cfg.jellyfin.baseUrl = g('baseUrl'); cfg.jellyfin.apiKey = g('apiKey'); cfg.jellyfin.libraryRoot = g('libraryRoot')
+      target.jellyfin.baseUrl = g('baseUrl'); target.jellyfin.apiKey = g('apiKey'); target.jellyfin.libraryRoot = g('libraryRoot')
     } else if (type === 'navidrome') {
-      cfg.navidrome.baseUrl = g('baseUrl'); cfg.navidrome.username = g('username'); cfg.navidrome.password = g('password'); cfg.navidrome.libraryRoot = g('libraryRoot')
+      target.navidrome.baseUrl = g('baseUrl'); target.navidrome.username = g('username'); target.navidrome.password = g('password'); target.navidrome.libraryRoot = g('libraryRoot')
     } else if (type === 'daoliyu') {
-      cfg.daoliyu.baseUrl = g('baseUrl'); cfg.daoliyu.username = g('username'); cfg.daoliyu.password = g('password'); cfg.daoliyu.libraryRoot = g('libraryRoot')
+      target.daoliyu.baseUrl = g('baseUrl'); target.daoliyu.username = g('username'); target.daoliyu.password = g('password'); target.daoliyu.libraryRoot = g('libraryRoot')
     } else if (type === 'subsonic') {
-      cfg.subsonic.baseUrl = g('baseUrl'); cfg.subsonic.username = g('username'); cfg.subsonic.password = g('password')
+      target.subsonic.baseUrl = g('baseUrl'); target.subsonic.username = g('username'); target.subsonic.password = g('password')
     }
   }
+  /** 按类型把表单字段写进全局配置（正式保存路径） */
+  const applyServerCfg = (type: string, b: Record<string, unknown>): void => mergeServerValues(cfg, type, b)
   const adapterOf = (type: string): MediaServerAdapter =>
     type === 'emby' ? emby
       : type === 'jellyfin' ? new EmbyAdapter(() => cfg, 'jellyfin')
         : type === 'navidrome' ? new NavidromeAdapter(() => cfg)
           : type === 'daoliyu' ? new DaoliyuAdapter(() => cfg)
             : new SubsonicAdapter(() => cfg)
+  /**
+   * 用**临时配置**构造适配器（探测用：表单当前值还没保存，不能改全局 cfg）。
+   * 浅拷贝 cfg + 只把该类型的段换成「现值 + 表单值」的新对象 —— 其余段共享引用（只读无妨）。
+   */
+  const adapterOfWith = (type: string, values: Record<string, unknown>): MediaServerAdapter => {
+    const temp = { ...cfg, [type]: { ...(cfg as unknown as Record<string, object>)[type] } } as AppConfig
+    mergeServerValues(temp, type, values)
+    const get = () => temp
+    return type === 'emby' ? new EmbyAdapter(get, 'emby')
+      : type === 'jellyfin' ? new EmbyAdapter(get, 'jellyfin')
+        : type === 'navidrome' ? new NavidromeAdapter(get)
+          : type === 'daoliyu' ? new DaoliyuAdapter(get)
+            : new SubsonicAdapter(get)
+  }
 
   /** 把底层报错翻成人话（让用户知道该去改哪个字段） */
   const friendlyErr = (e: string): string =>
@@ -208,8 +229,33 @@ export function apiRouter(
         apiKeyAuth: s.apiKeyAuth,
         fields: s.fields,
         values: serverVals(s.key),
+        /** 该服务器是否支持「读取媒体库」下拉（Subsonic 无媒体库概念 → false） */
+        canPickLibrary: s.probePath !== null,
       })),
     })
+  })
+
+  /**
+   * 读取媒体库列表（连接页「读取媒体库」按钮；2026-10-16 媒体库下拉选择方案 A）。
+   * 入参 = **表单当前值**（用户还没按保存）→ 用临时配置构造适配器探测，不落盘、不改全局 cfg。
+   * 纯只读：只调媒体服务器的库列表接口。
+   */
+  r.post('/connect/libraries', async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>
+    const spec = specOf(String(b.type ?? ''))
+    if (!spec) return res.json({ ok: false, message: '未知的媒体服务器类型' })
+    if (!spec.probePath) return res.json({ ok: false, message: `${spec.label} 没有媒体库概念，请直接填写路径` })
+    const values = { baseUrl: b.baseUrl, apiKey: b.apiKey, username: b.username, password: b.password, libraryRoot: b.libraryRoot }
+    try {
+      const ad = adapterOfWith(spec.key, values as Record<string, unknown>)
+      const libs = await ad.listLibraries()
+      res.json({
+        ok: true,
+        libraries: libs.map((l) => ({ id: l.id, name: l.name, locations: l.locations ?? [] })),
+      })
+    } catch (e) {
+      res.json({ ok: false, message: `${spec.label} 读取失败（${friendlyErr((e as Error).message)}）` })
+    }
   })
 
   r.post('/connect/lx', (req, res) => {
@@ -225,6 +271,26 @@ export function apiRouter(
   r.post('/connect/test-lx', async (_req, res) => {
     const t = await lx.test()
     res.json(t.ok ? { ok: true, message: 'LX 连接正常' } : { ok: false, message: `LX ${t.error}` })
+  })
+
+  /**
+   * LX 配置体检（连接页「配置体检」按钮；2026-10-17 三件套第 2 件）。
+   * 入参 = **表单当前值**（未保存也能体检）→ 全程只读、不落盘、不改全局 cfg。
+   * 返回分级检查项（ok/warn/bad/info），由前端渲染成清单。
+   */
+  r.post('/connect/lx-check', async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>
+    try {
+      const result = await runLxCheck({
+        baseUrl: String(b.baseUrl ?? ''),
+        apiKey: String(b.apiKey ?? ''),
+        username: String(b.username ?? ''),
+        downloadRoot: String(b.downloadRoot ?? ''),
+      })
+      res.json(result)
+    } catch (e) {
+      res.json({ ok: false, items: [{ status: 'bad', label: `体检执行出错（${(e as Error).message}）` }] })
+    }
   })
 
   r.post('/connect/apply-json', async (req, res) => {

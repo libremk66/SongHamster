@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { CircleHelp, LogOut, Menu, Tag, X } from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NAV } from '@/lib/nav'
 import { api } from '@/lib/api'
+import { fetchLatestVersion, isNewer } from '@/lib/version'
 import { cn } from '@/lib/utils'
 
 /*
@@ -26,8 +27,17 @@ import { cn } from '@/lib/utils'
 const NAV_ITEM =
   'flex h-11 items-center gap-3 rounded-r-full pr-4 pl-[1.375rem] mr-[1.125rem] text-base transition-colors'
 
-const FOOT_ITEM =
-  'flex h-9 w-full items-center gap-2.5 rounded-md px-3 text-base text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
+/**
+ * GitHub 猫图标（内联 SVG）。
+ * lucide-react 从 v1 起移除了品牌图标（Github 不再导出），这里用官方 octicon 路径补一个。
+ */
+function GithubIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+    </svg>
+  )
+}
 
 /** logo + 站名（桌面侧栏和手机抽屉共用） */
 function SidebarLogo({ right }: { right?: React.ReactNode }) {
@@ -41,17 +51,31 @@ function SidebarLogo({ right }: { right?: React.ReactNode }) {
 }
 
 /**
- * 侧栏底部：帮助 / 版本 / 退出登录。
- * 版本号取自后端 `/healthz`（它读的是 package.json，不会再像以前那样写死）。
+ * 侧栏底部（2026-10-17 起对齐 DockHamster 的版式）：
+ *
+ *   ┌──────────────────────────┐
+ *   │ [☀][☾][🖥]        [→ 退出] │  ← 主题分段控件 + 红色退出，同一行
+ *   ├──────────────────────────┤  ← 细分割线
+ *   │        [🐙] v0.6.1        │  ← GitHub 图标 + 版本号，居中
+ *   │       已是最新 · v0.6.1    │  ← 小字灰；有新版时换成琥珀色提示
+ *   └──────────────────────────┘
+ *
+ * 版本号取后端 `/healthz`（读 package.json）；「已是最新」要等远端探测成功才显示，
+ * 探测不到就留空 —— 不给虚假绿灯（见 lib/version.ts）。
  */
 function SidebarFooter() {
   const [version, setVersion] = useState('')
+  const [latest, setLatest] = useState<string | null>(null)
+
   useEffect(() => {
     fetch('/healthz')
       .then((r) => r.json())
       .then((d: { version?: string }) => setVersion(d.version ?? ''))
       .catch(() => {})
+    void fetchLatestVersion().then(setLatest)
   }, [])
+
+  const hasUpdate = Boolean(version && latest && isNewer(latest, version))
 
   const logout = async () => {
     try {
@@ -63,26 +87,50 @@ function SidebarFooter() {
   }
 
   return (
-    <div className="shrink-0 space-y-0.5 border-t p-2">
-      <a
-        href="https://github.com/libremk66/songhamster#readme"
-        target="_blank"
-        rel="noreferrer"
-        className={FOOT_ITEM}
-      >
-        <CircleHelp className="size-4 shrink-0" aria-hidden />
-        帮助说明
-      </a>
-      <div className={cn(FOOT_ITEM, 'cursor-default hover:bg-transparent')} title="当前版本">
-        <Tag className="size-4 shrink-0" aria-hidden />
-        版本 {version || '—'}
+    <div className="shrink-0 border-t p-2">
+      {/* 操作行：主题分段控件 + 退出 */}
+      <div className="flex items-center gap-2 px-1">
+        <ThemeToggle className="flex-1" />
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+        >
+          <LogOut className="size-4 shrink-0" aria-hidden />
+          退出
+        </button>
       </div>
-      <button type="button" onClick={() => void logout()} className={cn(FOOT_ITEM, 'cursor-pointer')}>
-        <LogOut className="size-4 shrink-0" aria-hidden />
-        退出登录
-      </button>
-      <div className="px-1 pt-1">
-        <ThemeToggle />
+
+      {/* 分割线 */}
+      <div className="my-2 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
+
+      {/* 版本区：GitHub 图标 + 版本号居中；下面一行小字显示更新状态 */}
+      <div className="space-y-1 pb-1">
+        <a
+          href="https://github.com/libremk66/SongHamster"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-center gap-1.5 text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
+          title="项目主页（GitHub）"
+        >
+          <GithubIcon className="size-4 shrink-0" />
+          <span className="text-sm font-semibold">{version ? `v${version}` : 'v—'}</span>
+        </a>
+        {hasUpdate ? (
+          <a
+            href="https://github.com/libremk66/SongHamster/releases"
+            target="_blank"
+            rel="noreferrer"
+            className="block rounded bg-amber-500/10 py-1 text-center text-[11px] font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+            title="查看版本说明"
+          >
+            有新版本 {latest}
+          </a>
+        ) : latest ? (
+          <p className="text-center text-[11px] text-sidebar-foreground/40" title="已是最新版本">
+            已是最新 · v{version}
+          </p>
+        ) : null}
       </div>
     </div>
   )

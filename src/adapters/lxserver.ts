@@ -109,7 +109,14 @@ export class LxServerAdapter {
     let data: any = null
     try { data = JSON.parse(text) } catch { data = text }
     if (res.status === 401) throw new Error(`LX 鉴权失败(401)，请检查 API key（用户 token 只读列表，下载需有效 key）`)
-    if (!res.ok) throw new Error(`LX 请求失败 ${res.status}: ${String(data ?? text).slice(0, 200)}`)
+    if (!res.ok) {
+      // LX 的 500 响应体是 JSON 对象（如 {"error":"未找到支持 xx 平台的自定义源…","code":500}），
+      // 直接 String() 会变成 "[object Object]" 把真因吞掉 —— 优先取 error/message 字段
+      const detail = data && typeof data === 'object'
+        ? (data.error ?? data.message ?? JSON.stringify(data))
+        : (data ?? text)
+      throw new Error(`LX 请求失败 ${res.status}: ${String(detail).slice(0, 200)}`)
+    }
     return data
   }
 
@@ -120,6 +127,18 @@ export class LxServerAdapter {
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }
+  }
+
+  /**
+   * token 有效性 + 归属用户（连接页「配置体检」用）。
+   * ⚠️ 不发送 x-user-name：该接口只读 x-user-token（lxserver 源码 verifyUserAuth），
+   *    且用户名非 ASCII 时 Node fetch 会因 ByteString 限制直接抛异常 —— 体检要在
+   *    「用户名还没验」的阶段就能独立验 token，所以这里必须与用户名无关。
+   * 实测：坏 token / 无 token 也返回 200 + {valid:false}（不抛错）。
+   */
+  async verifyAuth(): Promise<{ valid: boolean; username: string | null }> {
+    const data = await this.request('GET', '/api/user/auth/verify')
+    return { valid: Boolean(data?.valid), username: data?.username ? String(data.username) : null }
   }
 
   /** 拉取歌单列表：loveList + userList（映射表行来源） */

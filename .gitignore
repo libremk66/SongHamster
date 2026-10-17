@@ -3,3 +3,6 @@ dist/
 data/
 *.log
 server.pid
+
+# 本机专属笔记（部署形态 / 开发接手）：含机器细节，不进公开仓库
+docs/local/
