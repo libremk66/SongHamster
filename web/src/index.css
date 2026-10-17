@@ -6,24 +6,32 @@
 /*
  * 设计 token —— shadcn/ui 约定：组件只引用语义变量，不写死颜色。
  *
- * ⚠️ 阶段二的接入点：把生成好的设计系统（配色/圆角/字体/间距）灌进下面 :root 和 .dark
- * 的变量值即可，**组件代码一行都不用改**。现在用的是 shadcn 中性默认值。
- */
-/*
- * 设计 token —— shadcn/ui 约定：组件只引用语义变量，不写死颜色。
- * 主题：**深色科技**（2026-09-20 用户选定）—— 深蓝黑底 + 品牌绿点缀。
- * 深色是默认（index.html 的 <html class="dark">）；下面是同色系的浅色版，将来做切换用。
- */
-/*
- * 设计 token —— shadcn/ui 约定：组件只引用语义变量，不写死颜色。
+ * 主题：**白瓷玉点**（2026-10-17 用户选定：白色为主，透明绿 / 绿色为辅）
  *
- * 主题：**暖黑·唱片架**（2026-09-20 定，替代此前的「近黑 + 荧光绿」）
- * 由「音乐库同步工具」这个主题长出来：暖褐黑 = 唱片架的木头/暗房，
- * 暗铜金 = 铜标/唱针，苔绿只用于「成功/复用」语义。
- * 深色是默认（index.html 的 <html class="dark">）。
+ * 观感来自「大面积留白 + 少量玉色点睛」：
+ *   ① 极淡玉晕 —— body 铺三团 alpha 只有 0.04~0.07 的绿/青径向渐变，
+ *                  白底上几乎察觉不到，只在边角透出一点空气感
+ *   ② 白瓷面   —— 页面底 #F7FAF8（带一丝绿的近白），卡片/弹层是纯白或 0.92 白，
+ *                  靠 1px 边框和极轻的阴影分层，不靠色块
+ *   ③ 玉色点睛 —— 绿色只出现在该被看见的地方：主按钮、侧栏选中项、链接、
+ *                  聚焦环、图表第一色。其余一律中性灰绿。
+ *
+ * 「透明绿」是**辅色**，用在选中/hover 底、标签、次要按钮上：
+ *   secondary / accent / sidebar-accent 都是 rgba(14,138,85,0.08~0.10)，
+ *   白底上像一层淡薄荷水洗过，不抢正文。
+ *
+ * ⚠️ 绿色现在是**品牌色**，所以「成功」不能再共用它 ——
+ *   组件里写死的 emerald（勾 / 进度条 / 状态点）保留，靠明度与饱和度拉开层次。
+ *
+ * 浅色是默认（index.html 不再挂 class="dark"）；深色是可选的反色版，同色系。
  */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+
+  /* 玉晕三色 —— 只给 body 的 background-image 用，不进 @theme。白底上必须很淡 */
+  --glow-1: rgba(16, 152, 96, 0.07);
+  --glow-2: rgba(13, 148, 136, 0.05);
+  --glow-3: rgba(101, 163, 13, 0.04);
 
   /*
     让浏览器知道当前是明还是暗。
@@ -33,86 +41,95 @@
   */
   color-scheme: light;
 
-  --background: #F5F1E8;
-  --foreground: #1C1A17;
-  --card: #FFFFFF;
-  --card-foreground: #1C1A17;
+  /* 近白底：纯白会让卡片没有落点，掺一丝绿反而显得"白得干净" */
+  --background: #F7FAF8;
+  --foreground: #14201A;
+  /* 卡片 = 白瓷：几乎不透明的白，光晕只在边缘透一点点 */
+  --card: rgba(255, 255, 255, 0.92);
+  --card-foreground: #14201A;
   --popover: #FFFFFF;
-  --popover-foreground: #1C1A17;
-  --primary: #956937;
-  --primary-foreground: #FFF9F0;
-  --secondary: #E9E3D6;
-  --secondary-foreground: #1C1A17;
-  --muted: #EDE8DC;
-  --muted-foreground: #6E675C;
-  --accent: #EDE8DC;
-  --accent-foreground: #1C1A17;
-  --destructive: #A83232;
+  --popover-foreground: #14201A;
+  /* 「玉」：主色。比深色版收一档，白底上才压得住正文 */
+  --primary: #0E8A55;
+  --primary-foreground: #FFFFFF;
+  /* 透明绿：辅色，用于选中底 / hover / 标签 / 次要按钮 */
+  --secondary: rgba(14, 138, 85, 0.08);
+  --secondary-foreground: #0A6B42;
+  --muted: rgba(20, 32, 26, 0.04);
+  --muted-foreground: #667A70;
+  --accent: rgba(14, 138, 85, 0.10);
+  --accent-foreground: #0A6B42;
+  --destructive: #C0271C;
   --destructive-foreground: #FFFFFF;
-  --border: #DCD5C6;
-  --input: #DCD5C6;
-  --ring: #956937;
+  --border: rgba(20, 32, 26, 0.10);
+  --input: rgba(20, 32, 26, 0.14);
+  --ring: rgba(14, 138, 85, 0.40);
 
-  --chart-1: #956937;
-  --chart-2: #4A6B8A;
-  --chart-3: #6B7A5A;
-  --chart-4: #8A5A7A;
-  --chart-5: #A83232;
+  /* 图表色：第一色是玉绿（点睛），其余青/黄绿/紫/红做区分 */
+  --chart-1: #0E8A55;
+  --chart-2: #0E7490;
+  --chart-3: #4D7C0F;
+  --chart-4: #7C5CBF;
+  --chart-5: #C0271C;
 
-  --sidebar: #EDE8DC;
-  --sidebar-foreground: #1C1A17;
-  --sidebar-primary: #956937;
-  --sidebar-primary-foreground: #FFF9F0;
-  --sidebar-accent: #DCD5C6;
-  --sidebar-accent-foreground: #1C1A17;
-  --sidebar-border: #DCD5C6;
-  --sidebar-ring: #956937;
+  --sidebar: rgba(255, 255, 255, 0.85);
+  --sidebar-foreground: #14201A;
+  --sidebar-primary: #0E8A55;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(14, 138, 85, 0.10);
+  --sidebar-accent-foreground: #0A6B42;
+  --sidebar-border: rgba(20, 32, 26, 0.08);
+  --sidebar-ring: rgba(14, 138, 85, 0.40);
 }
 
 .dark {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
   /* 见 :root 里的说明 —— 原生控件（select 下拉/滚动条）靠这个才跟着变暗 */
   color-scheme: dark;
 
-  /* 暖褐黑：不是 #0f172a 那种蓝黑（那是典型 AI 味），带一点木/皮革的温度 */
-  --background: #161513;
-  --foreground: #EDE7DC;
-  /* 「唱片」：分区底（列表区 / 工具栏 / 侧栏），比页面底浅一档 */
-  --card: #211F1C;
-  --card-foreground: #EDE7DC;
-  /* 「浮起」：真正浮起来的物件（弹层、卡），再浅一档 */
-  --popover: #2A2724;
-  --popover-foreground: #EDE7DC;
-  /* 「铜」：主色。暗铜金，不刺眼——绿色让位给「成功」语义 */
-  --primary: #B48550;
-  --primary-foreground: #1A1714;
-  --secondary: #2A2724;
-  --secondary-foreground: #EDE7DC;
-  --muted: #262320;
-  --muted-foreground: #8A8279;
-  --accent: #2A2724;
-  --accent-foreground: #EDE7DC;
-  --destructive: #C2564E;
-  --destructive-foreground: #FFF3F1;
-  --border: #35312C;
-  --input: #35312C;
-  --ring: #B48550;
+  /* 深色下光晕要更亮一点才看得见（底下是黑，同样的 alpha 会被吃掉） */
+  --glow-1: rgba(52, 211, 153, 0.10);
+  --glow-2: rgba(45, 212, 191, 0.07);
+  --glow-3: rgba(132, 204, 22, 0.05);
 
-  /* 「苔」：低饱和绿，只用于成功/复用，不做强调色 */
-  --chart-1: #B48550;
-  --chart-2: #6B8FA8;
-  --chart-3: #6B7A5A;
-  --chart-4: #A87A9A;
-  --chart-5: #C2564E;
+  /* 中性炭黑，只留一点绿意 —— 不再是墨绿底，绿色全部让给点睛 */
+  --background: #0F1513;
+  --foreground: #E8EFEA;
+  /* 面：低 alpha + backdrop blur，光晕才透得上来 */
+  --card: rgba(28, 38, 34, 0.72);
+  --card-foreground: #E8EFEA;
+  --popover: rgba(24, 33, 30, 0.95);
+  --popover-foreground: #E8EFEA;
+  /* 「玉」：亮一档的翠绿，在深底上够清楚又不刺眼 */
+  --primary: #34D399;
+  --primary-foreground: #04231A;
+  --secondary: rgba(52, 211, 153, 0.12);
+  --secondary-foreground: #A7F3D0;
+  --muted: rgba(232, 239, 234, 0.06);
+  --muted-foreground: #93A69C;
+  --accent: rgba(52, 211, 153, 0.14);
+  --accent-foreground: #A7F3D0;
+  --destructive: #F87171;
+  --destructive-foreground: #2A0A0A;
+  --border: rgba(167, 243, 208, 0.12);
+  --input: rgba(167, 243, 208, 0.18);
+  --ring: rgba(52, 211, 153, 0.50);
 
-  --sidebar: #1B1917;
-  --sidebar-foreground: #EDE7DC;
-  --sidebar-primary: #B48550;
-  --sidebar-primary-foreground: #1A1714;
-  --sidebar-accent: #262320;
-  --sidebar-accent-foreground: #EDE7DC;
-  --sidebar-border: #2A2724;
-  --sidebar-ring: #B48550;
+  /* 图表色：绿系为主，青/黄绿/紫/红做区分 */
+  --chart-1: #34D399;
+  --chart-2: #22D3EE;
+  --chart-3: #A3E635;
+  --chart-4: #A78BFA;
+  --chart-5: #F87171;
+
+  --sidebar: rgba(22, 30, 27, 0.80);
+  --sidebar-foreground: #E8EFEA;
+  --sidebar-primary: #34D399;
+  --sidebar-primary-foreground: #04231A;
+  --sidebar-accent: rgba(52, 211, 153, 0.14);
+  --sidebar-accent-foreground: #A7F3D0;
+  --sidebar-border: rgba(167, 243, 208, 0.10);
+  --sidebar-ring: rgba(52, 211, 153, 0.50);
 }
 
 @theme inline {
@@ -182,11 +199,22 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /*
+    ① 玉色光晕：三团径向渐变 + 固定铺满视口。
+    background-attachment: fixed —— 让光晕「钉在屏幕上」而不是跟着内容滚，
+    长列表往下翻时光源不会跟着跑（滚动时也不会重绘整页渐变，更省）。
+  */
   body {
     @apply bg-background text-foreground;
     margin: 0;
     /* 移动端：禁掉 iOS 点击高亮 */
     -webkit-tap-highlight-color: transparent;
+    background-image:
+      radial-gradient(60rem 42rem at 12% -8%, var(--glow-1), transparent 62%),
+      radial-gradient(52rem 38rem at 92% 6%, var(--glow-2), transparent 60%),
+      radial-gradient(48rem 40rem at 62% 104%, var(--glow-3), transparent 62%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
   /*
     原生 <select> 展开后的列表是**浏览器自己画的**，不吃 Tailwind class。
@@ -211,5 +239,43 @@
     textarea {
       font-size: 0.875rem;
     }
+  }
+}
+
+/*
+  ③ 毛玻璃：给所有「面」补上背景模糊。
+
+  为什么按 class 名批量处理、而不是逐个组件加 ——
+  全站 34 处 bg-card / bg-popover / bg-sidebar，逐个加类既啰嗦又容易漏；
+  而这三个 utility 的语义就是「一块面」，正好是玻璃该作用的地方。
+  颜色本身仍是各组件自己的 bg-* 决定（见 index.css 顶部的 token），这里只补模糊。
+
+  白瓷主题下卡片是 0.92 的白，模糊几乎看不出来 —— 所以浅色只给很轻的
+  模糊（主要作用是让边缘那圈玉晕更柔），深色才是真正的玻璃。
+  ⚠️ 加 saturate 是为了让 blur 之后不至于灰掉 —— 纯 blur 会把玉色的饱和感洗淡。
+  ⚠️ 用 @supports 兜底：老浏览器没有 backdrop-filter 时，面就是普通半透明，仍可读。
+*/
+@supports (backdrop-filter: blur(1px)) {
+  .bg-card,
+  .bg-popover,
+  .bg-sidebar {
+    -webkit-backdrop-filter: blur(8px) saturate(1.15);
+    backdrop-filter: blur(8px) saturate(1.15);
+  }
+  /* 弹层（Sheet / 下拉菜单）浮在页面之上，模糊给足一点才压得住背后的内容 */
+  .bg-popover {
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
+  }
+  /* 深色的面 alpha 低得多，玻璃感靠 blur 撑起来 */
+  .dark .bg-card,
+  .dark .bg-popover,
+  .dark .bg-sidebar {
+    -webkit-backdrop-filter: blur(14px) saturate(1.35);
+    backdrop-filter: blur(14px) saturate(1.35);
+  }
+  .dark .bg-popover {
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
   }
 }

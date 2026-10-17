@@ -49,7 +49,17 @@ export function TaskEditDialog({
   const [cronExpr, setCronExpr] = useState(task.cronExpr ?? '')
   const [maxCount, setMaxCount] = useState(task.maxCount ?? 30)
   const [sameName, setSameName] = useState(task.createSameNamePlaylist)
-  const [scope, setScope] = useState(task.playlistScope ?? 'shared')
+  /*
+    目标歌单归属：库里存的是**裸用户 ID**（如 e3b1f55e…），而 <Select> 的选项 value 是
+    `id|名字`。直接拿裸 ID 当 value 匹配不上任何选项，浏览器会静默回落到第一项「共享」
+    —— 表现为「选了 king，再打开编辑又变回共享」（2026-10-17 用户报的 bug）。
+    这里先拼成 `id|名字`，等 scopes 拉到后再用**服务器上的实时名字**对齐（见 scopeValue）。
+  */
+  const [scope, setScope] = useState(
+    task.playlistScope && task.playlistScope !== 'shared'
+      ? `${task.playlistScope}|${task.playlistScopeName ?? ''}`
+      : 'shared',
+  )
   const [targets, setTargets] = useState<string[]>(task.targetIds ?? [])
   const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -62,6 +72,17 @@ export function TaskEditDialog({
     queryKey: ['playlists', scope],
     queryFn: () => api.get<{ playlists: { id: string; name: string }[] }>(`/options/playlists?playlistScope=${encodeURIComponent(scope)}`),
   })
+
+  /*
+    下拉框实际显示的值：按 **ID** 去匹配 scopes 里的实时选项（名字可能被改过），
+    匹配不上时退回存库时的 `id|名字`；再匹配不上就补一个临时选项，至少不会显示成「共享」。
+  */
+  const scopeUsers = scopes.data?.users ?? []
+  const scopeId = scope === 'shared' ? 'shared' : scope.split('|')[0]
+  const scopeMatched = scopeUsers.find((u) => u.id === scopeId)
+  const scopeValue =
+    scope === 'shared' ? 'shared' : scopeMatched ? `${scopeMatched.id}|${scopeMatched.name}` : scope
+  const scopeFallback = scope !== 'shared' && !scopeMatched
 
   const save = useMutation({
     mutationFn: () =>
@@ -137,9 +158,11 @@ export function TaskEditDialog({
             <Label htmlFor="ed-scope">
               <FieldLabel className="mb-0">目标歌单归属</FieldLabel>
             </Label>
-            <Select id="ed-scope" value={scope} onChange={(e) => { setScope(e.target.value); setTargets([]) }}>
+            <Select id="ed-scope" value={scopeValue} onChange={(e) => { setScope(e.target.value); setTargets([]) }}>
               <option value="shared">共享（所有人可见）</option>
-              {scopes.data?.users.map((u) => (
+              {/* 用户列表还没拉回来 / 该账号已不在列表里：先把存库的值显示出来，别静默变「共享」 */}
+              {scopeFallback && <option value={scope}>{scope.split('|')[1] || scopeId}</option>}
+              {scopeUsers.map((u) => (
                 <option key={u.id} value={`${u.id}|${u.name}`}>
                   {u.name}
                 </option>

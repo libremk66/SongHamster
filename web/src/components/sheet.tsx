@@ -35,6 +35,20 @@ export function Sheet({
   /** 打开前焦点在哪 —— 关闭时要还回去 */
   const restoreRef = useRef<HTMLElement | null>(null)
 
+  /*
+    ⚠️ onClose 走 ref，**不进 effect 依赖**。
+    调用方几乎都是内联箭头函数（`onClose={() => setEditing(null)}`），每次父组件重渲染
+    它的身份就变一次；写进依赖会让下面的 effect 反复 cleanup + 重跑：
+      cleanup 把焦点还给「打开弹框的那个按钮」→ 重跑又把焦点抢到面板第一个可聚焦元素（标题栏的 ✕）。
+    结果就是用户正在输入框里打字，父组件一刷新（任务页在同步运行时每 2 秒轮询一次），
+    焦点被悄悄挪走；此时敲空格 = 点中 ✕，弹框直接关掉 ——
+    表现为「cron 框里输入空格就跳出去了」（2026-10-17 用户报的 bug）。
+  */
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useEffect(() => {
     if (!open) return
     restoreRef.current = document.activeElement as HTMLElement | null
@@ -49,7 +63,7 @@ export function Sheet({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !panel) return
@@ -72,10 +86,10 @@ export function Sheet({
 
     return () => {
       document.removeEventListener('keydown', onKey)
-      // 焦点归还
+      // 焦点归还（只在真正卸载/关闭时跑 —— 依赖里只有 open，见上面 onCloseRef 的注释）
       restoreRef.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

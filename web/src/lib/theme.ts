@@ -22,7 +22,7 @@ export function getTheme(): ThemeMode {
   } catch {
     /* 隐私模式 */
   }
-  return 'dark' // 默认深色（用户选定的主题）；想跟随系统可手动切
+  return 'light' // 默认浅色（用户选定的主题）；想跟随系统可手动切
 }
 
 function isDark(mode: ThemeMode): boolean {
@@ -33,9 +33,9 @@ function isDark(mode: ThemeMode): boolean {
 
 export function applyTheme(mode: ThemeMode): void {
   document.documentElement.classList.toggle('dark', isDark(mode))
-  // 移动端浏览器地址栏配色跟着变
+  // 移动端浏览器地址栏配色跟着变（与 index.css 的 --background 同步）
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', isDark(mode) ? '#161513' : '#F5F1E8')
+  if (meta) meta.setAttribute('content', isDark(mode) ? '#0F1513' : '#F7FAF8')
 }
 
 export function setTheme(mode: ThemeMode): void {

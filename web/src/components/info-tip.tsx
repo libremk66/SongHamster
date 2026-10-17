@@ -144,7 +144,9 @@ export function InfoTip({
                 : { left: -9999, top: -9999, visibility: 'hidden' }
             }
             className={cn(
-              'fixed z-40 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-2.5',
+              // z-[60]：必须**高于** Sheet 弹框的 z-50 —— 提示常常就在弹框里点开，
+              // 用 40 的话气泡被弹框整层盖住，表现为「点了 i 什么也没有」（2026-10-17 用户报的 bug）
+              'fixed z-[60] w-72 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-2.5',
               'text-left text-xs font-normal leading-relaxed text-popover-foreground shadow-md',
             )}
           >
